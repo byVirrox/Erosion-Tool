@@ -1,0 +1,33 @@
+#pragma kernel GenerateFbmNoise
+
+#include "Includes/FbmParameters.compute"
+#include "Includes/FractalBrownianMotion.compute"
+#define STANDARDFBM         0
+#define ADVANCEDFBM         1
+
+
+[numthreads(8, 8, 1)]
+void GenerateFbmNoise(uint3 id : SV_DispatchThreadID)
+{
+    float res_minus_1 = (float) (resolution - 1);
+    float2 f_chunkCoord = (float2) chunkCoord;
+    float2 f_id = (float2) id.xy;
+
+    float2 absolutePixel = f_chunkCoord * res_minus_1 + f_id;
+    
+    float2 sampleCoords = (absolutePixel + offset) * scale;
+    
+    FbmParams params;
+    params.persistence = persistence;
+    params.lacunarity = lacunarity;
+    params.octaves = octaves;
+    params.noiseType = noiseType;
+    float fbmValue;
+    
+    if (fbmType == ADVANCEDFBM) 
+        fbmValue = AdvancedFBM(sampleCoords, params);
+    else
+        fbmValue = StandardFBM(sampleCoords, params);
+    
+    Result[id.xy] = fbmValue * heightScale;
+}

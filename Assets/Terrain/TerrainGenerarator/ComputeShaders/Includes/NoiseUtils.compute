@@ -1,0 +1,17 @@
+#ifndef NOISE_UTILS_INCLUDED
+#define NOISE_UTILS_INCLUDED
+
+float4 mod289(float4 x)
+{
+    return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+float3 mod289(float3 x)
+{
+    return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+float2 mod289(float2 x)
+{
+    return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+#endif

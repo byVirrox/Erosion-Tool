@@ -1,0 +1,1 @@
+public enum FBMType { StandardFBM, AdvancedFBM }

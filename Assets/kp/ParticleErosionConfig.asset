@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a2bf0d039aeac3443a8754fb17dc9e7f, type: 3}
+  m_Name: ParticleErosionConfig
+  m_EditorClassIdentifier: Assembly-CSharp::ErosionConfig
+  numErosionIterations: 0
+  erosionBrushRadius: 4
+  maxLifetime: 140
+  inertia: 0.05
+  gravity: 4
+  startSpeed: 1
+  startWater: 1
+  evaporateSpeed: 0.01
+  sedimentCapacityFactor: 8
+  minSedimentCapacity: 0
+  depositSpeed: 0.3
+  erodeSpeed: 0.3

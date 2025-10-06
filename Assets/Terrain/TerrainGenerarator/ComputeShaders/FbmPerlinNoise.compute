@@ -1,0 +1,96 @@
+#pragma kernel GenerateFbmNoise
+
+StructuredBuffer<int> perm;
+RWTexture2D<float> Result;
+
+int resolution;
+int chunkCoordX;
+int chunkCoordY;
+float offsetX;
+float offsetY;
+float xScale;
+float yScale;
+float heightScale;
+float persistence;
+float lacunarity;
+int octaves;
+int noiseType;
+
+float fade(float t)
+{
+    return t * t * t * (t * (t * 6 - 15) + 10);
+}
+float lerp(float t, float a, float b)
+{
+    return a + t * (b - a);
+}
+float grad(int hash, float x, float y)
+{
+    int h = hash & 15;
+    float u = h < 8 ? x : y;
+    float v = h < 4 ? y : h == 12 || h == 14 ? x : 0;
+    return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
+}
+
+float perlinNoise(float x, float y)
+{
+    float fx = floor(x);
+    float fy = floor(y);
+    int ix = (int) fx;
+    int iy = (int) fy;
+    int X = ix & 255;
+    int Y = iy & 255;
+    x -= fx;
+    y -= fy;
+    float u = fade(x);
+    float v = fade(y);
+    int A = perm[X] + Y;
+    int B = perm[X + 1] + Y;
+    return lerp(v, lerp(u, grad(perm[A & 511], x, y), grad(perm[B & 511], x - 1, y)),
+                   lerp(u, grad(perm[(A + 1) & 511], x, y - 1), grad(perm[(B + 1) & 511], x - 1, y - 1)));
+}
+
+
+float FractalBrownianMotion(float2 coords)
+{
+    float total = 0;
+    float frequency = 1.0;
+    float amplitude = 0.5;
+    float maxValue = 0.0;
+
+    for (int i = 0; i < octaves; i++)
+    {
+        total += perlinNoise(coords.x * frequency, coords.y * frequency) * amplitude;
+        maxValue += amplitude;
+        amplitude *= persistence;
+        frequency *= lacunarity;
+    }
+
+    
+    
+    float result = total / maxValue;
+    return result * 0.5 + 0.5;
+}
+
+
+[numthreads(8, 8, 1)]
+void GenerateFbmNoise(uint3 id : SV_DispatchThreadID)
+{
+    float res_minus_1 = (float) (resolution - 1);
+    float f_chunkCoordX = (float) chunkCoordX;
+    float f_chunkCoordY = (float) chunkCoordY;
+    float f_idX = (float) id.x;
+    float f_idY = (float) id.y;
+
+    float absolutePixelX = f_chunkCoordX * res_minus_1 + f_idX;
+    float absolutePixelY = f_chunkCoordY * res_minus_1 + f_idY;
+    
+    float2 sampleCoords = float2(
+        (absolutePixelX + offsetX) * xScale,
+        (absolutePixelY + offsetY) * yScale
+    );
+    
+    float fbmValue = FractalBrownianMotion(sampleCoords);
+    
+    Result[id.xy] = fbmValue * heightScale;
+}

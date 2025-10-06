@@ -1,0 +1,26 @@
+#ifndef FBM_PARAMETERS_INCLUDED
+#define FBM_PARAMETERS_INCLUDED
+
+RWTexture2D<float> Result;
+StructuredBuffer<int> perm;
+
+int resolution;
+int2 chunkCoord;
+float2 offset;
+float2 scale;
+float heightScale;
+float persistence;
+float lacunarity;
+int octaves;
+int noiseType;
+int fbmType;
+
+struct FbmParams
+{
+    float persistence;
+    float lacunarity;
+    int octaves;
+    int noiseType;
+};
+
+#endif

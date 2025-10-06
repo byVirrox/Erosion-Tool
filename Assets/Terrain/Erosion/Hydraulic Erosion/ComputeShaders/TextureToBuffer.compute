@@ -1,0 +1,12 @@
+#pragma kernel CopyTextureToBuffer
+
+Texture2D<float> SourceTexture;
+RWBuffer<float> DestinationBuffer;
+uint width;
+
+[numthreads(8, 8, 1)]
+void CopyTextureToBuffer(uint3 id : SV_DispatchThreadID)
+{
+    uint index = id.y * width + id.x;
+    DestinationBuffer[index] = SourceTexture[id.xy];
+}

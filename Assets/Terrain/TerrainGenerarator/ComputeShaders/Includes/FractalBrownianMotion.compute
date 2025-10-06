@@ -1,0 +1,71 @@
+#ifndef FRACTAL_BROWNIAN_MOTION_INCLUDED
+#define FRACTAL_BROWNIAN_MOTION_INCLUDED
+
+#define PERLIN         0
+#define SIMPLEX        1
+#define VALUE     2
+
+#include "PerlinNoise.compute"
+#include "SimplexNoise.compute"
+#include "ValueNoise.compute"
+
+// --- Modifiziertes FBM (nach Inigo Quilez) ---
+float AdvancedFBM(float2 samplePoint, in FbmParams params)
+{
+    float heightValue = 0.0;
+    float amplitude = 1.0;
+    float2 accumulatedDerivative = float2(0.0, 0.0);
+
+    for (int i = 0; i < params.octaves; i++)
+    {
+        float3 noise_deriv;
+        if (params.noiseType == VALUE)
+            noise_deriv = valueNoise(samplePoint);
+        else
+            noise_deriv = perlinNoise_and_Deriv(samplePoint);
+
+        accumulatedDerivative += amplitude * noise_deriv.yz;
+
+        heightValue += amplitude * noise_deriv.x / (1.0 + dot(accumulatedDerivative, accumulatedDerivative));
+        
+        amplitude *= params.persistence;
+        float2 rotatedPoint = float2(
+            samplePoint.x * 0.8 + samplePoint.y * 0.6,
+            samplePoint.x * -0.6 + samplePoint.y * 0.8
+        );
+        
+        samplePoint = rotatedPoint * params.lacunarity;
+    }
+
+    return heightValue * 0.5 + 0.5;
+}
+
+
+// --- Standard Fractional Brownian Motion ---
+float StandardFBM(float2 samplePoint, in FbmParams params)
+{
+    float totalValue = 0;
+    float frequency = 1.0;
+    float amplitude = 1.0;
+    float maxAmplitude = 0.0;
+
+    for (int i = 0; i < params.octaves; i++)
+    {
+        float noiseValue;
+        if (params.noiseType == SIMPLEX) 
+            noiseValue = simplexNoise(samplePoint * frequency);
+        else if (params.noiseType == VALUE) 
+            noiseValue = valueNoise(samplePoint * frequency).x;
+        else
+            noiseValue = perlinNoise(samplePoint * frequency);
+        
+        totalValue += noiseValue * amplitude;
+        maxAmplitude += amplitude;
+        amplitude *= params.persistence;
+        frequency *= params.lacunarity;
+    }
+    
+    return (totalValue / maxAmplitude) * 0.5 + 0.5;
+}
+
+#endif

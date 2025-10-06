@@ -1,0 +1,15 @@
+struct Particle
+{
+    float2 pos;
+    float2 dir;
+    float speed;
+    float water;
+    float sediment;
+    int lifetime;
+};
+
+struct OutgoingParticle
+{
+    Particle particle;
+    int exitDirection;
+};

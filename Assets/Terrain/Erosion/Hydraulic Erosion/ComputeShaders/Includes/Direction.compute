@@ -1,0 +1,30 @@
+#define DIR_NORTH      0
+#define DIR_NORTH_EAST 1
+#define DIR_EAST       2
+#define DIR_SOUTH_EAST 3
+#define DIR_SOUTH      4
+#define DIR_SOUTH_WEST 5
+#define DIR_WEST       6
+#define DIR_NORTH_WEST 7
+
+int GetExitDirection(bool n, bool e, bool s, bool w)
+{
+    if (n && w)
+        return DIR_NORTH_WEST;
+    if (n && e)
+        return DIR_NORTH_EAST;
+    if (s && w)
+        return DIR_SOUTH_WEST;
+    if (s && e)
+        return DIR_SOUTH_EAST;
+    if (n)
+        return DIR_NORTH;
+    if (e)
+        return DIR_EAST;
+    if (s)
+        return DIR_SOUTH;
+    if (w)
+        return DIR_WEST;
+
+    return -1;
+}

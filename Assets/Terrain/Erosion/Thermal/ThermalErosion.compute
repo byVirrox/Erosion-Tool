@@ -1,0 +1,41 @@
+#pragma kernel ThermalErosion
+
+Texture2D<float> ReadMap;
+RWTexture2D<float> WriteMap;
+
+int resolution;
+float talusAngle; 
+
+[numthreads(8, 8, 1)]
+void ThermalErosion(uint3 id : SV_DispatchThreadID)
+{
+    float myHeight = ReadMap[id.xy];
+    float netChange = 0.0;
+
+    int2 neighbors[4] =
+    {
+        id.xy + int2(0, 1),
+        id.xy + int2(0, -1),
+        id.xy + int2(1, 0),
+        id.xy + int2(-1, 0)
+    };
+
+    for (int i = 0; i < 4; i++)
+    {
+        // Stelle sicher, dass wir nicht außerhalb des Bildes lesen
+        if (neighbors[i].x >= 0 && neighbors[i].x < resolution &&
+            neighbors[i].y >= 0 && neighbors[i].y < resolution)
+        {
+            float neighborHeight = ReadMap[neighbors[i]];
+            float heightDiff = myHeight - neighborHeight;
+
+            if (heightDiff > talusAngle)
+            {
+                float amountToMove = (heightDiff - talusAngle) * 0.25;
+                netChange -= amountToMove;
+            }
+        }
+    }
+
+    WriteMap[id.xy] = myHeight + netChange;
+}

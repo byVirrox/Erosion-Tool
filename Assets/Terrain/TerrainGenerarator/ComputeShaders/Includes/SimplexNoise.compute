@@ -1,0 +1,94 @@
+#ifndef SIMPLEX_NOISE_INCLUDED
+#define SIMPLEX_NOISE_INCLUDED
+
+#include "FbmParameters.compute" 
+
+// Gradient function specific to this 2D Simplex Noise implementation.
+float simplex_grad(int hash, float x, float y)
+{
+    int h = hash & 7;
+    float u = h < 4 ? x : y;
+    float v = h < 4 ? y : x;
+    return ((h & 1) != 0 ? -u : u) + ((h & 2) != 0 ? -2.0 * v : 2.0 * v);
+}
+
+// 2D Simplex Noise, ported from Stefan Gustavson's C++ code.
+// This implementation is quadrant-safe.
+float simplexNoise(float2 samplePoint)
+{
+    const float F2 = 0.366025403; // 0.5 * (sqrt(3.0) - 1.0)
+    const float G2 = 0.211324865; // (3.0 - sqrt(3.0)) / 6.0
+
+    // 1. Skew the input space to determine which simplex cell we're in.
+    float s = (samplePoint.x + samplePoint.y) * F2;
+    int i = (int) floor(samplePoint.x + s);
+    int j = (int) floor(samplePoint.y + s);
+
+    // 2. Unskew the cell origin back to (x,y) space.
+    float t = (float) (i + j) * G2;
+    float X0 = i - t;
+    float Y0 = j - t;
+    float x0 = samplePoint.x - X0;
+    float y0 = samplePoint.y - Y0;
+
+    // 3. Determine the corners of the simplex (triangle).
+    int i1, j1;
+    if (x0 > y0)
+    {
+        i1 = 1;
+        j1 = 0;
+    } // Lower triangle
+    else
+    {
+        i1 = 0;
+        j1 = 1;
+    } // Upper triangle
+
+    float x1 = x0 - i1 + G2;
+    float y1 = y0 - j1 + G2;
+    float x2 = x0 - 1.0 + 2.0 * G2;
+    float y2 = y0 - 1.0 + 2.0 * G2;
+
+    // 4. Hash the grid coordinates.
+    // A faster bitwise & 255 is used for the modulo operation.
+    int ii = i & 255;
+    int jj = j & 255;
+    int gi0 = perm[ii + perm[jj]];
+    int gi1 = perm[ii + i1 + perm[jj + j1]];
+    int gi2 = perm[ii + 1 + perm[jj + 1]];
+
+    // 5. Calculate the contribution from each corner.
+    float n0, n1, n2;
+
+    float t0 = 0.5 - x0 * x0 - y0 * y0;
+    if (t0 < 0.0)
+        n0 = 0.0;
+    else
+    {
+        t0 *= t0;
+        n0 = t0 * t0 * simplex_grad(gi0, x0, y0);
+    }
+
+    float t1 = 0.5 - x1 * x1 - y1 * y1;
+    if (t1 < 0.0)
+        n1 = 0.0;
+    else
+    {
+        t1 *= t1;
+        n1 = t1 * t1 * simplex_grad(gi1, x1, y1);
+    }
+
+    float t2 = 0.5 - x2 * x2 - y2 * y2;
+    if (t2 < 0.0)
+        n2 = 0.0;
+    else
+    {
+        t2 *= t2;
+        n2 = t2 * t2 * simplex_grad(gi2, x2, y2);
+    }
+
+    // 6. Sum the contributions and scale the result.
+    return 12 * (n0 + n1 + n2);
+}
+
+#endif
