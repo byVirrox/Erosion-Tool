@@ -12,11 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e0ff5faa5e3d2c5478181917944e9b12, type: 3}
   m_Name: FbmConfig
   m_EditorClassIdentifier: Assembly-CSharp::FbmConfig
-  offset: {x: 100, y: 100}
+  offset: {x: 111, y: 111}
+  scale: 1
   xScale: 0.0003
   yScale: 0.0003
   heightScale: 1.4
   persistence: 0.6
-  lacunarity: 2
+  lacunarity: 1.9
   octaves: 12
+  ridgedOctaves: 0
   noiseType: 1
+  fbmType: 1

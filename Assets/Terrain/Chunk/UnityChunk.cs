@@ -17,6 +17,8 @@ public class UnityChunk : BaseChunk, IChunk<RenderTexture>, IParticleErodibleChu
 
     public bool InitialParticlesDropped { get; set; }
 
+    private const int maxIncomingParticles = 300000;
+
 
     public UnityChunk(GridCoordinates coordinates, RenderTexture pregeneratedHeightmap) : base(coordinates)
     {
@@ -35,9 +37,7 @@ public class UnityChunk : BaseChunk, IChunk<RenderTexture>, IParticleErodibleChu
 
     private void InitializeCommon(int resolution)
     {
-        int particleStructSize = Marshal.SizeOf<Particle>();
-        int maxIncomingParticles = 300000;
-        _incomingParticlesBuffer = new ComputeBuffer(maxIncomingParticles, particleStructSize, ComputeBufferType.Append);
+        _incomingParticlesBuffer = new ComputeBuffer(maxIncomingParticles, Marshal.SizeOf<Particle>(), ComputeBufferType.Append);
         ClearIncomingParticles();
 
         InitialParticlesDropped = false;
@@ -60,20 +60,22 @@ public class UnityChunk : BaseChunk, IChunk<RenderTexture>, IParticleErodibleChu
 
     #region Interface Implementations
 
-    public void UploadPendingParticles(List<Particle> particles)
+    public void AppendFromCPU(List<OutgoingParticle> particles, ComputeShader transferShader)
     {
-        if (particles == null || particles.Count == 0 || _incomingParticlesBuffer == null) return;
+        if (particles == null || particles.Count == 0) 
+            return;
 
-        if (particles.Count > _incomingParticlesBuffer.count)
-        {
-            Debug.LogWarning($"Zu viele ankommende Partikel ({particles.Count}) für Chunk {Coordinates}. Kürze auf die Buffer-Kapazität von {_incomingParticlesBuffer.count}.");
-            int startIndex = particles.Count - _incomingParticlesBuffer.count;
-            particles = particles.GetRange(startIndex, _incomingParticlesBuffer.count);
-        }
+        ComputeBuffer tempCpuBuffer = new ComputeBuffer(particles.Count, Marshal.SizeOf<OutgoingParticle>());
+        tempCpuBuffer.SetData(particles);
 
-        _incomingParticlesBuffer.SetData(particles);
+        int kernel = transferShader.FindKernel("CopyAppendParticles");
+        transferShader.SetBuffer(kernel, "Source", tempCpuBuffer);
+        transferShader.SetBuffer(kernel, "Destination", _incomingParticlesBuffer);
 
-        _incomingParticlesBuffer.SetCounterValue((uint)particles.Count);
+        int numThreadGroups = Mathf.CeilToInt(particles.Count / 64f);
+        transferShader.Dispatch(kernel, numThreadGroups, 1, 1);
+
+        tempCpuBuffer.Release();
     }
 
     public void ClearIncomingParticles()

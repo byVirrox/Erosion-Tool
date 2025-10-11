@@ -22,6 +22,15 @@ public class FbmConfig : ScriptableObject
     [Min(1)]
     public int octaves = 8;
 
+    [Min(0)]
+    public int ridgedOctaves = 0;
+
     public NoiseType noiseType = NoiseType.Perlin;
     public FBMType fbmType = FBMType.StandardFBM;
+
+
+    private void OnValidate()
+    {
+        ridgedOctaves = Mathf.Clamp(ridgedOctaves, 0, octaves);
+    }
 }

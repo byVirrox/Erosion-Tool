@@ -3,11 +3,46 @@
 
 #define PERLIN         0
 #define SIMPLEX        1
-#define VALUE     2
+#define VALUE          2
 
 #include "PerlinNoise.compute"
 #include "SimplexNoise.compute"
 #include "ValueNoise.compute"
+
+/// <summary>
+/// Wandelt eine normale Noise-Probe (Wert im Bereich [-1, 1]) in eine "Ridged"-Probe um,
+/// die ebenfalls im Bereich [-1, 1] liegt, basierend auf der Formel (abs(wert) - 0.5) * 2.
+/// </summary>
+/**
+float3 ToRidged(float3 noiseSample)
+{
+    float ridgedValue = (abs(noiseSample.x) - 0.5) * 2.0;
+
+    float2 ridgedDerivative = sign(noiseSample.x) * noiseSample.yz * 2.0;
+
+    return float3(ridgedValue, ridgedDerivative);
+}
+**/
+
+/// <summary>
+/// Führt eine glatte Invertierung einer Noise-Probe durch (erzeugt weiche Täler).
+/// Der Wertebereich von [-1, 1] wird auf [0, 1] abgebildet.
+/// Die Ableitung bleibt stetig.
+/// </summary>
+float3 ToSmoothInverted(float3 noiseSample)
+{
+    float value = noiseSample.x;
+    float2 derivative = noiseSample.yz;
+
+    // 1. Die glatte Invertierungsfunktion: 1 - x^2
+    float invertedValue = 1.0 - value * value;
+
+    // 2. Die Ableitung mit der Kettenregel: d/dp(1 - f(p)^2) = -2 * f(p) * f'(p)
+    float2 invertedDerivative = -2.0 * value * derivative;
+
+    return float3(invertedValue, invertedDerivative);
+}
+
 
 // --- Modifiziertes FBM (nach Inigo Quilez) ---
 float AdvancedFBM(float2 samplePoint, in FbmParams params)
@@ -21,8 +56,16 @@ float AdvancedFBM(float2 samplePoint, in FbmParams params)
         float3 noise_deriv;
         if (params.noiseType == VALUE)
             noise_deriv = valueNoise(samplePoint);
+        else if (params.noiseType == SIMPLEX)
+            noise_deriv = simplexNoiseWithDerivative(samplePoint);
         else
             noise_deriv = perlinNoise_and_Deriv(samplePoint);
+        
+        if (i < params.ridgedOctaves && i > 0)
+        {
+            noise_deriv = ToSmoothInverted(noise_deriv);
+
+        }
 
         accumulatedDerivative += amplitude * noise_deriv.yz;
 
@@ -59,6 +102,12 @@ float StandardFBM(float2 samplePoint, in FbmParams params)
         else
             noiseValue = perlinNoise(samplePoint * frequency);
         
+        if (i < params.ridgedOctaves)
+        {
+            noiseValue = (abs(noiseValue) - 0.5) * 2;
+
+        }
+        
         totalValue += noiseValue * amplitude;
         maxAmplitude += amplitude;
         amplitude *= params.persistence;
@@ -66,6 +115,40 @@ float StandardFBM(float2 samplePoint, in FbmParams params)
     }
     
     return (totalValue / maxAmplitude) * 0.5 + 0.5;
+}
+
+float RidgedFBM(float2 samplePoint, in FbmParams params)
+{
+    float totalValue = 0;
+    float frequency = 1.0;
+    float amplitude = 1.0;
+    float weight = 1.0;
+
+    for (int i = 0; i < params.octaves; i++)
+    {
+        // 1. Hole den normalen Noise-Wert im Bereich [-1, 1]
+        float noiseValue = simplexNoise(samplePoint * frequency);
+        
+        // 2. DER TRICK: Bilde den Absolutwert und invertiere ihn.
+        //    Das erzeugt die scharfen "V"-förmigen Täler.
+        noiseValue = 1.0 - abs(noiseValue);
+        
+        // 3. Potenziere das Ergebnis, um die Täler noch schärfer zu machen.
+        noiseValue *= noiseValue;
+        
+        // 4. Multipliziere mit dem "Gewicht" der vorherigen Oktaven.
+        //    Dies sorgt dafür, dass Details nur auf den Kämmen der größeren
+        //    Formationen entstehen und Täler flach bleiben.
+        totalValue += noiseValue * amplitude * weight;
+
+        // 5. Aktualisiere das Gewicht für die nächste, feinere Oktave.
+        weight = saturate(noiseValue * 0.6); // Der Faktor 0.6 ist ein guter Startwert zum Anpassen
+
+        amplitude *= params.persistence;
+        frequency *= params.lacunarity;
+    }
+    
+    return totalValue; // Das Ergebnis ist bereits im Bereich [0, 1]
 }
 
 #endif

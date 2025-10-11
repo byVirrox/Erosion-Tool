@@ -15,9 +15,9 @@ AppendStructuredBuffer<OutgoingParticle> outgoingParticlesE;
 AppendStructuredBuffer<OutgoingParticle> outgoingParticlesCorners;
 
 int mapSizeWithBorder;
-int mapResolution;
 int brushLength;
 int borderSize;
+#define mapResolution (mapSizeWithBorder - 2 * borderSize)
 
 int maxLifetime;
 float inertia;
@@ -55,33 +55,6 @@ float3 CalculateHeightAndGradient(float2 position)
 
 bool HandleOutgoingParticle(float2 dropletPosition, float2 direction, float speed, float water, float sediment, int lifetime)
 {
-
-    bool isOutOfBoundsWest = dropletPosition.x < borderSize;
-    bool isOutOfBoundsEast = dropletPosition.x >= mapSizeWithBorder - borderSize;
-    bool isOutOfBoundsNorth = dropletPosition.y < borderSize;
-    bool isOutOfBoundsSouth = dropletPosition.y >= mapSizeWithBorder - borderSize;
-
-    if (!isOutOfBoundsNorth && !isOutOfBoundsEast && !isOutOfBoundsSouth && !isOutOfBoundsWest)
-    {
-        return false;
-    }
-
-    int exitDirection = GetExitDirection(isOutOfBoundsNorth, isOutOfBoundsEast, isOutOfBoundsSouth, isOutOfBoundsWest);
-
-    float normalizedX = dropletPosition.x - borderSize;
-    float normalizedY = dropletPosition.y - borderSize;
-    float wrappedX = isOutOfBoundsWest ? mapResolution + normalizedX : dropletPosition.x - (mapSizeWithBorder - borderSize);
-    float wrappedY = isOutOfBoundsNorth ? mapResolution + normalizedY : dropletPosition.y - (mapSizeWithBorder - borderSize);
-    
-    OutgoingParticle op;
-    op.particle.dir = direction;
-    op.particle.speed = speed;
-    op.particle.water = water;
-    op.particle.sediment = sediment;
-    op.particle.lifetime = lifetime;
-    op.exitDirection = exitDirection;
-
-    /**
     bool isOutOfBoundsWest = dropletPosition.x < borderSize;
     bool isOutOfBoundsEast = dropletPosition.x >= mapSizeWithBorder - borderSize;
     bool isOutOfBoundsSouth = dropletPosition.y < borderSize;
@@ -94,53 +67,52 @@ bool HandleOutgoingParticle(float2 dropletPosition, float2 direction, float spee
 
     int exitDirection = GetExitDirection(isOutOfBoundsNorth, isOutOfBoundsEast, isOutOfBoundsSouth, isOutOfBoundsWest);
 
-
-    float newX = isOutOfBoundsWest ? mapResolution + (dropletPosition.x - borderSize) : (isOutOfBoundsEast ? dropletPosition.x - (mapSizeWithBorder - borderSize) : dropletPosition.x - borderSize);
-    float newY = isOutOfBoundsNorth ? mapResolution + (dropletPosition.y - borderSize) : (isOutOfBoundsSouth ? dropletPosition.y - (mapSizeWithBorder - borderSize) : dropletPosition.y - borderSize);
+    float normalizedX = dropletPosition.x - borderSize;
+    float normalizedY = dropletPosition.y - borderSize;
+    float wrappedX = isOutOfBoundsWest ? mapResolution + dropletPosition.x : dropletPosition.x - (mapSizeWithBorder - borderSize);
+    float wrappedY = isOutOfBoundsSouth ? mapResolution + dropletPosition.y : dropletPosition.y - (mapSizeWithBorder - borderSize);
     
     OutgoingParticle op;
-    op.particle.pos = float2(newX, newY);
     op.particle.dir = direction;
     op.particle.speed = speed;
     op.particle.water = water;
     op.particle.sediment = sediment;
-    op.particle.lifetime = lifetime;
+    op.particle.lifetime = lifetime + 1;
     op.exitDirection = exitDirection;
-    **/
+
     switch (exitDirection)
     {
-        case DIR_NORTH_WEST:
-            op.particle.pos = float2(dropletPosition.x + mapResolution, dropletPosition.y - mapResolution);
-            outgoingParticlesCorners.Append(op);
-            break;
-        case DIR_NORTH_EAST:
-            op.particle.pos = float2(dropletPosition.x - mapResolution, dropletPosition.y - mapResolution);
-            outgoingParticlesCorners.Append(op);
-            break;
-        case DIR_SOUTH_WEST:
-            op.particle.pos = float2(dropletPosition.x + mapResolution, dropletPosition.y + mapResolution);
-            outgoingParticlesCorners.Append(op);
-            break;
-        case DIR_SOUTH_EAST:
-            op.particle.pos = float2(dropletPosition.x - mapResolution, dropletPosition.y + mapResolution);
-            outgoingParticlesCorners.Append(op);
-            break;
-        
         case DIR_NORTH:
-            op.particle.pos = float2(dropletPosition.x, dropletPosition.y - mapResolution);
+            op.particle.pos = float2(dropletPosition.x, wrappedY);
             outgoingParticlesN.Append(op);
             break;
+        case DIR_NORTH_EAST:
+            op.particle.pos = float2(wrappedX, wrappedY);
+            outgoingParticlesCorners.Append(op);
+            break;
         case DIR_EAST:
-            op.particle.pos = float2(dropletPosition.x - mapResolution, dropletPosition.y);
+            op.particle.pos = float2(wrappedX, dropletPosition.y);
             outgoingParticlesE.Append(op);
             break;
+        case DIR_SOUTH_EAST:
+            op.particle.pos = float2(wrappedX, wrappedY);
+            outgoingParticlesCorners.Append(op);
+            break;
         case DIR_SOUTH:
-            op.particle.pos = float2(dropletPosition.x, dropletPosition.y + mapResolution);
+            op.particle.pos = float2(dropletPosition.x, wrappedY);
             outgoingParticlesS.Append(op);
             break;
+        case DIR_SOUTH_WEST:
+            op.particle.pos = float2(wrappedX, wrappedY);
+            outgoingParticlesCorners.Append(op);
+            break;
         case DIR_WEST:
-            op.particle.pos = float2(dropletPosition.x + mapResolution, dropletPosition.y);
+            op.particle.pos = float2(wrappedX, dropletPosition.y);
             outgoingParticlesW.Append(op);
+            break;
+        case DIR_NORTH_WEST:
+            op.particle.pos = float2(wrappedX, wrappedY);
+            outgoingParticlesCorners.Append(op);
             break;
     }
     
@@ -152,7 +124,6 @@ bool HandleOutgoingParticle(float2 dropletPosition, float2 direction, float spee
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
     Particle p_initial = initialParticles[id.x];
-    
     float2 dropletPosition = p_initial.pos;
     float2 direction = p_initial.dir;
     float speed = p_initial.speed;

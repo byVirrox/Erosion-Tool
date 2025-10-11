@@ -50,5 +50,5 @@ public interface IWorldManager
     /// </summary>
     /// <param name="coords">The coordinates of the unloaded target chunk.</param>
     /// <param name="particles">The list of particles to store.</param>
-    void AddPendingParticles(GridCoordinates coords, List<Particle> particles);
+    void AddPendingParticles(GridCoordinates coords, List<OutgoingParticle> particles);
 }

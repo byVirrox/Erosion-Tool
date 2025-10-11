@@ -1,6 +1,9 @@
 #ifndef SIMPLEX_NOISE_INCLUDED
 #define SIMPLEX_NOISE_INCLUDED
 
+#define F2 0.366025403f // F2 = 0.5*(sqrt(3.0)-1.0)
+#define G2 0.211324865f // G2 = (3.0-Math.sqrt(3.0))/6.0
+
 #include "FbmParameters.compute" 
 
 // Gradient function specific to this 2D Simplex Noise implementation.
@@ -16,9 +19,6 @@ float simplex_grad(int hash, float x, float y)
 // This implementation is quadrant-safe.
 float simplexNoise(float2 samplePoint)
 {
-    const float F2 = 0.366025403; // 0.5 * (sqrt(3.0) - 1.0)
-    const float G2 = 0.211324865; // (3.0 - sqrt(3.0)) / 6.0
-
     // 1. Skew the input space to determine which simplex cell we're in.
     float s = (samplePoint.x + samplePoint.y) * F2;
     int i = (int) floor(samplePoint.x + s);
@@ -27,11 +27,11 @@ float simplexNoise(float2 samplePoint)
     // 2. Unskew the cell origin back to (x,y) space.
     float t = (float) (i + j) * G2;
     float X0 = i - t;
-    float Y0 = j - t;
+    float Y0 = j - t; // startpunkt
     float x0 = samplePoint.x - X0;
-    float y0 = samplePoint.y - Y0;
+    float y0 = samplePoint.y - Y0; // abstand zum startpunkt
 
-    // 3. Determine the corners of the simplex (triangle).
+    // 3. Determine the corners of the simplex (triangle). Look up in which part of the Rhombus the samplepoint lies in
     int i1, j1;
     if (x0 > y0)
     {
@@ -51,6 +51,7 @@ float simplexNoise(float2 samplePoint)
 
     // 4. Hash the grid coordinates.
     // A faster bitwise & 255 is used for the modulo operation.
+    // Detimnine the gradient for each corner
     int ii = i & 255;
     int jj = j & 255;
     int gi0 = perm[ii + perm[jj]];
@@ -90,5 +91,128 @@ float simplexNoise(float2 samplePoint)
     // 6. Sum the contributions and scale the result.
     return 12 * (n0 + n1 + n2);
 }
+
+// Hilfsfunktion, um die Komponenten (gx, gy) des Gradientenvektors
+// aus dem Hash-Wert zu extrahieren.
+void get_grad_components(int hash, out float gx, out float gy)
+{
+    int h = hash & 7;
+    float u_coeff = ((h & 1) != 0 ? -1.0f : 1.0f);
+    float v_coeff = ((h & 2) != 0 ? -2.0f : 2.0f);
+
+    if (h < 4)
+    {
+        gx = u_coeff;
+        gy = v_coeff;
+    }
+    else
+    {
+        gx = v_coeff;
+        gy = u_coeff;
+    }
+}
+
+// Neue Funktion, die den Noise-Wert und seinen Gradienten (Ableitung) zurückgibt.
+// Rückgabewert: float3(noise, dnoise/dx, dnoise/dy)
+float3 simplexNoiseWithDerivative(float2 samplePoint)
+{
+    // Schritte 1-4 sind identisch zur Originalfunktion
+    // 1. Skew the input space
+    float s = (samplePoint.x + samplePoint.y) * F2;
+    int i = (int) floor(samplePoint.x + s);
+    int j = (int) floor(samplePoint.y + s);
+
+    // 2. Unskew the cell origin
+    float t = (float) (i + j) * G2;
+    float X0 = i - t;
+    float Y0 = j - t;
+    float x0 = samplePoint.x - X0;
+    float y0 = samplePoint.y - Y0;
+
+    // 3. Determine the simplex corners
+    int i1, j1;
+    if (x0 > y0)
+    {
+        i1 = 1;
+        j1 = 0;
+    }
+    else
+    {
+        i1 = 0;
+        j1 = 1;
+    }
+
+    float x1 = x0 - i1 + G2;
+    float y1 = y0 - j1 + G2;
+    float x2 = x0 - 1.0f + 2.0f * G2;
+    float y2 = y0 - 1.0f + 2.0f * G2;
+
+    // 4. Hash the grid coordinates
+    int ii = i & 255;
+    int jj = j & 255;
+    int gi0 = perm[ii + perm[jj]];
+    int gi1 = perm[ii + i1 + perm[jj + j1]];
+    int gi2 = perm[ii + 1 + perm[jj + 1]];
+
+    // 5. Calculate the contribution and the derivative from each corner.
+    float n0 = 0.0f, n1 = 0.0f, n2 = 0.0f;
+    float dndx = 0.0f, dndy = 0.0f;
+
+    // Corner 0
+    float t0 = 0.5f - x0 * x0 - y0 * y0;
+    if (t0 >= 0.0f)
+    {
+        float t0_2 = t0 * t0;
+        float t0_3 = t0_2 * t0;
+        float t0_4 = t0_2 * t0_2;
+        
+        float grad_val0 = simplex_grad(gi0, x0, y0);
+        n0 = t0_4 * grad_val0;
+
+        float gx0, gy0;
+        get_grad_components(gi0, gx0, gy0);
+        dndx += -8.0f * x0 * t0_3 * grad_val0 + t0_4 * gx0;
+        dndy += -8.0f * y0 * t0_3 * grad_val0 + t0_4 * gy0;
+    }
+
+    // Corner 1
+    float t1 = 0.5f - x1 * x1 - y1 * y1;
+    if (t1 >= 0.0f)
+    {
+        float t1_2 = t1 * t1;
+        float t1_3 = t1_2 * t1;
+        float t1_4 = t1_2 * t1_2;
+
+        float grad_val1 = simplex_grad(gi1, x1, y1);
+        n1 = t1_4 * grad_val1;
+
+        float gx1, gy1;
+        get_grad_components(gi1, gx1, gy1);
+        dndx += -8.0f * x1 * t1_3 * grad_val1 + t1_4 * gx1;
+        dndy += -8.0f * y1 * t1_3 * grad_val1 + t1_4 * gy1;
+    }
+
+    // Corner 2
+    float t2 = 0.5f - x2 * x2 - y2 * y2;
+    if (t2 >= 0.0f)
+    {
+        float t2_2 = t2 * t2;
+        float t2_3 = t2_2 * t2;
+        float t2_4 = t2_2 * t2_2;
+
+        float grad_val2 = simplex_grad(gi2, x2, y2);
+        n2 = t2_4 * grad_val2;
+        
+        float gx2, gy2;
+        get_grad_components(gi2, gx2, gy2);
+        dndx += -8.0f * x2 * t2_3 * grad_val2 + t2_4 * gx2;
+        dndy += -8.0f * y2 * t2_3 * grad_val2 + t2_4 * gy2;
+    }
+
+    // 6. Sum the contributions and scale the result.
+    // The scaling factor applies to the noise value AND its derivative.
+    return 12.0f * float3(n0 + n1 + n2, dndx, dndy);
+}
+
 
 #endif

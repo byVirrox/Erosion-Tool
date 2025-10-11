@@ -21,6 +21,7 @@ void GenerateFbmNoise(uint3 id : SV_DispatchThreadID)
     params.persistence = persistence;
     params.lacunarity = lacunarity;
     params.octaves = octaves;
+    params.ridgedOctaves = ridgedOctaves;
     params.noiseType = noiseType;
     float fbmValue;
     

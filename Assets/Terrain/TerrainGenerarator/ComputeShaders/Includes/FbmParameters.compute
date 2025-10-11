@@ -12,6 +12,7 @@ float heightScale;
 float persistence;
 float lacunarity;
 int octaves;
+int ridgedOctaves;
 int noiseType;
 int fbmType;
 
@@ -20,6 +21,7 @@ struct FbmParams
     float persistence;
     float lacunarity;
     int octaves;
+    int ridgedOctaves;
     int noiseType;
 };
 

@@ -25,4 +25,9 @@ public struct GridCoordinates : System.IEquatable<GridCoordinates>
     {
         return obj is GridCoordinates other && Equals(other);
     }
+
+    public override string ToString()
+    {
+        return (X.ToString() + ", " + Y.ToString());
+    }
 }

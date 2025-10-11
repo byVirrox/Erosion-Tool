@@ -1,7 +1,6 @@
 using System.Collections.Generic;
-using UnityEngine;
-
 using System.Linq;
+using UnityEngine;
 
 
 public static class ParticleTransferService
@@ -32,7 +31,9 @@ public static class ParticleTransferService
             }
         }
 
+
         // Eck-Buffer index 4
+
         if (counts[4] > 0)
         {
             var sortedCorners = ReadbackAndSortCorners(eroder, sourceChunk);
@@ -45,7 +46,7 @@ public static class ParticleTransferService
 
                 if (world.GetChunk(neighborCoords) is IParticleErodibleChunk erodibleNeighbor)
                 {
-                    erodibleNeighbor.UploadPendingParticles(transfer.Value);
+                    erodibleNeighbor.AppendFromCPU(transfer.Value, eroder.GetTransferShader());
                     world.MarkChunkAsDirty(erodibleNeighbor);
                 }
                 else
@@ -54,6 +55,11 @@ public static class ParticleTransferService
                 }
             }
         }
+
+
+
+
+        eroder.ClearOutgoingBuffers();
     }
 
     #region Private Static Helper Methods
@@ -80,52 +86,70 @@ public static class ParticleTransferService
         int numThreadGroups = Mathf.CeilToInt(particleCount / 64f);
         transferShader.Dispatch(kernel, numThreadGroups, 1, 1);
 
-        Debug.Log("Sucessful Transfer");
+        sourceBuffer.SetCounterValue(0);
     }
 
     // TODO Optimierung Direction = NULL keine OUtgoing Particles mehr vereinfachung der architektur jeder bekommt ein label
-    private static List<Particle> ReadbackBuffer(ITerrainParticleEroder eroder, IParticleErodibleChunk chunk, int bufferIndex)
+    private static List<OutgoingParticle> ReadbackBuffer(ITerrainParticleEroder eroder, IParticleErodibleChunk chunk, int bufferIndex)
     {
         var sourceBuffer = eroder.GetOutgoingBuffers()[bufferIndex];
         int particleCount = eroder.GetAppendBufferCount(sourceBuffer);
-        if (particleCount == 0) return new List<Particle>();
+        if (particleCount == 0)
+        {
+            return new List<OutgoingParticle>();
+        }  
 
         OutgoingParticle[] readParticles = new OutgoingParticle[particleCount];
         sourceBuffer.GetData(readParticles);
-        return readParticles.Select(p => p.particle).ToList();
+
+        sourceBuffer.SetCounterValue(0);
+
+        return readParticles.ToList();
     }
 
-    private static Dictionary<Direction, List<Particle>> ReadbackAndSortCorners(ITerrainParticleEroder eroder, IParticleErodibleChunk chunk)
+    private static Dictionary<Direction, List<OutgoingParticle>> ReadbackAndSortCorners(ITerrainParticleEroder eroder, IParticleErodibleChunk chunk)
     {
-        var sortedCorners = new Dictionary<Direction, List<Particle>> {
-            { Direction.NorthEast, new List<Particle>() }, { Direction.SouthEast, new List<Particle>() },
-            { Direction.SouthWest, new List<Particle>() }, { Direction.NorthWest, new List<Particle>() }
+        var sortedCorners = new Dictionary<Direction, List<OutgoingParticle>> {
+            { Direction.NorthEast, new List<OutgoingParticle>() }, { Direction.SouthEast, new List<OutgoingParticle>() },
+            { Direction.SouthWest, new List<OutgoingParticle>() }, { Direction.NorthWest, new List<OutgoingParticle>() }
         };
 
         var sourceBuffer = eroder.GetOutgoingBuffers()[4];
-        int particleCount = eroder.GetAppendBufferCount(sourceBuffer);
+        int particleCount = sourceBuffer.count;
         if (particleCount > 0)
         {
             OutgoingParticle[] cornerParticles = new OutgoingParticle[particleCount];
             sourceBuffer.GetData(cornerParticles);
 
-            foreach (var op in cornerParticles)
+            foreach (var cornerParticle in cornerParticles)
             {
-                if (sortedCorners.ContainsKey((Direction)op.exitDirection))
+                if (sortedCorners.ContainsKey((Direction)cornerParticle.exitDirection))
                 {
-                    sortedCorners[(Direction)op.exitDirection].Add(op.particle);
+                    sortedCorners[(Direction)cornerParticle.exitDirection].Add(cornerParticle);
                 }
             }
         }
+        if ((eroder as ParticleTerrainEroder).log == true)
+        {
+            sortedCorners.TryGetValue(Direction.NorthEast, out var ne);
+            Debug.Log("NE:" + ne.Count + " at x" + chunk.Coordinates.ToString());
+            sortedCorners.TryGetValue(Direction.NorthWest, out var nw);
+            Debug.Log("NW:" + nw.Count + " at x" + chunk.Coordinates.ToString());
+            sortedCorners.TryGetValue(Direction.SouthEast, out var se);
+            Debug.Log("SE:" + se.Count + " at x" + chunk.Coordinates.ToString());
+            sortedCorners.TryGetValue(Direction.SouthWest, out var sw);
+            Debug.Log("SW:" + sw.Count + " at x" + chunk.Coordinates.ToString());
+            /**
+            foreach (var lol in sw)
+            {
+                if (lol.particle.pos.x - 513 < 0 || lol.particle.pos.y - 513 < 0)
+                Debug.Log("x:" + lol.particle.pos.x + ",y" + lol.particle.pos.y);
+            }
+                **/
+   
+        }
 
-        sortedCorners.TryGetValue(Direction.NorthEast, out var ne);
-        Debug.Log("NE:" + ne.Count);
-        sortedCorners.TryGetValue(Direction.NorthWest, out var nw);
-        Debug.Log("NW:" + nw.Count);
-        sortedCorners.TryGetValue(Direction.SouthEast, out var se);
-        Debug.Log("SE:" + se.Count);
-        sortedCorners.TryGetValue(Direction.SouthWest, out var sw);
-        Debug.Log("SW:" + sw.Count);
+        sourceBuffer.SetCounterValue(0);
 
         return sortedCorners;
     }

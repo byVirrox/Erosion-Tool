@@ -14,13 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ErosionConfig
   numErosionIterations: 0
   erosionBrushRadius: 4
-  maxLifetime: 140
-  inertia: 0.05
+  maxLifetime: 20
+  inertia: 0.07
   gravity: 4
   startSpeed: 1
   startWater: 1
   evaporateSpeed: 0.01
-  sedimentCapacityFactor: 8
+  sedimentCapacityFactor: 10
   minSedimentCapacity: 0
   depositSpeed: 0.3
   erodeSpeed: 0.3

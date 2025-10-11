@@ -27,6 +27,8 @@ public interface ITerrainParticleEroder
     public ErosionResult Erode(IParticleErodibleChunk chunk, INoiseGenerator generator, int worldSeed);
 
     ComputeShader GetTransferShader();
+
+    void ClearOutgoingBuffers();
     ComputeBuffer[] GetOutgoingBuffers();
     /// <summary>
     /// Gets the number of elements currently in an Append-type ComputeBuffer on the GPU.

@@ -15,4 +15,4 @@ MonoBehaviour:
   fbmShader: {fileID: 7200000, guid: e2730096e635c7842a2e9a6a93a6621b, type: 3}
   config: {fileID: 11400000, guid: 11db51b42354d764cafbbb8ce1d7d07d, type: 2}
   seed: 0
-  permutationTable: {fileID: 11400000, guid: d7ebf932f46307c4a87c3010b0820337, type: 2}
+  permutationTable: {fileID: 11400000, guid: ca0b8c372c98f864aaa11623b36b1b53, type: 2}

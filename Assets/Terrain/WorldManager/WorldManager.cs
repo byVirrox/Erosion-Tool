@@ -34,7 +34,7 @@ public class WorldManager : MonoBehaviour, IWorldManager
     private GridCoordinates _currentCenterCoords;
 
     private Dictionary<GridCoordinates, Terrain> _activeTerrainObjects = new Dictionary<GridCoordinates, Terrain>();
-    private Dictionary<GridCoordinates, List<Particle>> _pendingParticles = new Dictionary<GridCoordinates, List<Particle>>();
+    private Dictionary<GridCoordinates, List<OutgoingParticle>> _pendingParticles = new Dictionary<GridCoordinates, List<OutgoingParticle>>();
 
     public IReadOnlyDictionary<GridCoordinates, IChunk> ActiveChunks => _activeChunks;
 
@@ -140,17 +140,16 @@ public class WorldManager : MonoBehaviour, IWorldManager
 
         if (!_chunksInQueue.Contains(chunk))
         {
-            //Debug.Log($"Chunk {chunk.Coordinates} wurde als 'dirty' markiert und der Queue hinzugefügt.");
             _dirtyChunksQueue.Enqueue(chunk);
             _chunksInQueue.Add(chunk);
         }
     }
 
-    public void AddPendingParticles(GridCoordinates coords, List<Particle> particles)
+    public void AddPendingParticles(GridCoordinates coords, List<OutgoingParticle> particles)
     {
         if (!_pendingParticles.ContainsKey(coords))
         {
-            _pendingParticles[coords] = new List<Particle>();
+            _pendingParticles[coords] = new List<OutgoingParticle>();
         }
         _pendingParticles[coords].AddRange(particles);
     }
@@ -214,6 +213,7 @@ public class WorldManager : MonoBehaviour, IWorldManager
                 neighbor.SetNeighbor(GetOppositeDirection(dir), newChunk);
             }
         }
+        UploadPendingParticles(coords, newChunk);
 
         MarkChunkAsDirty(newChunk);
     }
@@ -243,12 +243,23 @@ public class WorldManager : MonoBehaviour, IWorldManager
         }
     }
 
+    private void UploadPendingParticles(GridCoordinates coords, IChunk chunk)
+    {
+        if (_pendingParticles.TryGetValue(coords, out List<OutgoingParticle> particles))
+        {
+            (chunk as UnityChunk)?.AppendFromCPU(particles, eroder.GetTransferShader());
+            _pendingParticles.Remove(coords);
+        }
+    }
+
     private void ProcessDirtyChunks()
     {
         if (_dirtyChunksQueue.Count > 0)
         {
             IChunk chunkToProcess = _dirtyChunksQueue.Dequeue();
             _chunksInQueue.Remove(chunkToProcess);
+
+            chunkToProcess.IsDirty = true;
 
             if (chunkToProcess is not IParticleErodibleChunk erodibleChunk)
             {

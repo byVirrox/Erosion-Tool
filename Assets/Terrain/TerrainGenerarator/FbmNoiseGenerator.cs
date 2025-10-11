@@ -92,6 +92,7 @@ public class FbmNoiseGenerator : ScriptableObject, INoiseGenerator
         fbmShader.SetFloat("lacunarity", config.lacunarity);
         fbmShader.SetFloat("heightScale", config.scale * config.heightScale);
         fbmShader.SetInt("octaves", config.octaves);
+        fbmShader.SetInt("ridgedOctaves", config.ridgedOctaves);
         fbmShader.SetInt("noiseType", (int)config.noiseType);
         fbmShader.SetInt("fbmType", (int)config.fbmType);
 

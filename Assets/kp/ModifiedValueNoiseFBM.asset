@@ -12,12 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e0ff5faa5e3d2c5478181917944e9b12, type: 3}
   m_Name: ModifiedValueNoiseFBM
   m_EditorClassIdentifier: Scripts::FbmConfig
-  offset: {x: 0, y: 0}
-  xScale: 0.003
-  yScale: 0.003
-  heightScale: 0.6
+  offset: {x: 33, y: 22}
+  scale: 1.52
+  xScale: 0.00075
+  yScale: 0.00075
+  heightScale: 0.3
   persistence: 0.5
   lacunarity: 2
-  octaves: 1
-  noiseType: 0
+  octaves: 11
+  ridgedOctaves: 0
+  noiseType: 1
   fbmType: 1
