@@ -11,15 +11,13 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
     [Header("Dependencies")]
     public ComputeShader erosionShader;
     public ComputeShader particleTransferShader;
-    public ComputeShader textureToBufferShader;
-    public ComputeShader bufferToTextureShader;
     public ErosionConfig config;
     public bool log;
 
     private ComputeBuffer _brushIndicesBuffer;
     private ComputeBuffer _brushWeightsBuffer;
     private ComputeBuffer _particleStartBuffer;
-    private ComputeBuffer[] _outgoingParticleBuffers;
+    private ComputeBuffer _outgoingParticleBuffer;
     private ComputeBuffer _particleCountBuffer;
 
 
@@ -29,43 +27,39 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
     }
 
 
-    public ErosionResult Erode(IParticleErodibleChunk chunk, INoiseGenerator generator, int worldSeed)
+    public ErosionResult Erode(IParticleErodibleChunk chunk, RenderTexture haloMap, int worldSeed)
     {
         EnsureBuffersAreInitialized();
         int borderSize = config.erosionBrushRadius;
-
-        RenderTexture haloMap = BuildHaloMap(chunk, borderSize, generator);
 
         int kernel = erosionShader.FindKernel("CSMain");
         PrepareParticleStartBuffer(chunk, borderSize, worldSeed);
 
         if (_particleStartBuffer != null && _particleStartBuffer.count > 0)
         {
-            SetShaderParameters((IChunk<RenderTexture>)chunk, haloMap, kernel);
-            foreach (var buffer in _outgoingParticleBuffers) 
-            { 
-                buffer?.SetCounterValue(0); 
-            
+            // Prüfe, ob der outgoingBuffer groß genug ist. Wenn nicht, erstelle ihn neu.
+            // Die Kapazität muss mindestens so groß sein wie die Anzahl der startenden Partikel.
+            if (_outgoingParticleBuffer == null || _outgoingParticleBuffer.count < _particleStartBuffer.count)
+            {
+                _outgoingParticleBuffer?.Release();
+                _outgoingParticleBuffer = new ComputeBuffer(_particleStartBuffer.count, Marshal.SizeOf<Particle>(), ComputeBufferType.Append);
             }
+
+            SetShaderParameters((IChunk<RenderTexture>)chunk, haloMap, kernel);
+            _outgoingParticleBuffer.SetCounterValue(0);
             int numThreadGroups = Mathf.CeilToInt(_particleStartBuffer.count / 1024f);
             erosionShader.Dispatch(kernel, numThreadGroups, 1, 1);
         }
 
         List<IChunk> dirtiedNeighbors = DeconstructHaloMap(haloMap, chunk, borderSize);
 
-        var counts = new Dictionary<int, int>();
-        for (int i = 0; i < 5; i++)
-        {
-            counts[i] = GetAppendBufferCount(_outgoingParticleBuffers[i]);
-        }
-
         RenderTexture.ReleaseTemporary(haloMap);
 
-        return new ErosionResult { OutgoingParticleCounts = counts, DirtiedNeighbors = dirtiedNeighbors };
+        return new ErosionResult { DirtiedNeighbors = dirtiedNeighbors };
     }
 
     public ComputeShader GetTransferShader() => particleTransferShader;
-    public ComputeBuffer[] GetOutgoingBuffers() => _outgoingParticleBuffers;
+    public ComputeBuffer GetOutgoingBuffer() => _outgoingParticleBuffer;
 
 
     //TODO Auslagern in static class
@@ -79,7 +73,6 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
         {
             EnsureBuffersAreInitialized();
         }
-
         _particleCountBuffer.SetData(new int[] { 0 });
 
         ComputeBuffer.CopyCount(appendBuffer, _particleCountBuffer, 0);
@@ -130,13 +123,9 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
         _brushWeightsBuffer = new ComputeBuffer(Mathf.Max(1, brushWeights.Count), sizeof(float));
         if (brushWeights.Count > 0) _brushWeightsBuffer.SetData(brushWeights);
 
-        _outgoingParticleBuffers = new ComputeBuffer[5];
         int maxOutgoing = (config != null) ? config.numErosionIterations : 1024;
-        int outgoingStructSize = Marshal.SizeOf<OutgoingParticle>();
-        for (int i = 0; i < 5; i++)
-        {
-            _outgoingParticleBuffers[i] = new ComputeBuffer(Mathf.Max(1, maxOutgoing), outgoingStructSize, ComputeBufferType.Append);
-        }
+        int particleStructSize = Marshal.SizeOf<Particle>();
+        _outgoingParticleBuffer = new ComputeBuffer(Mathf.Max(1, maxOutgoing), particleStructSize, ComputeBufferType.Append);
 
         _particleCountBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
     }
@@ -147,7 +136,7 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
         List<Particle> startParticles = new List<Particle>();
 
         // GPU readback
-        int incomingCount = chunk.IncomingParticlesBuffer.count;
+        int incomingCount = GetAppendBufferCount(chunk.IncomingParticlesBuffer);
         if (incomingCount > 0)
         {
             Particle[] incoming = new Particle[incomingCount];
@@ -177,7 +166,8 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
                     speed = config.startSpeed,
                     water = config.startWater,
                     sediment = 0,
-                    lifetime = 0
+                    lifetime = 0,
+                    status = (int)ParticleStatus.InChunk,
                 });
             }
             chunk.InitialParticlesDropped = true;
@@ -214,11 +204,7 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
         erosionShader.SetBuffer(kernel, "brushWeights", _brushWeightsBuffer);
 
         erosionShader.SetBuffer(kernel, "initialParticles", _particleStartBuffer);
-        erosionShader.SetBuffer(kernel, "outgoingParticlesN", _outgoingParticleBuffers[0]);
-        erosionShader.SetBuffer(kernel, "outgoingParticlesE", _outgoingParticleBuffers[1]);
-        erosionShader.SetBuffer(kernel, "outgoingParticlesS", _outgoingParticleBuffers[2]);
-        erosionShader.SetBuffer(kernel, "outgoingParticlesW", _outgoingParticleBuffers[3]);
-        erosionShader.SetBuffer(kernel, "outgoingParticlesCorners", _outgoingParticleBuffers[4]);
+        erosionShader.SetBuffer(kernel, "outgoingParticles", _outgoingParticleBuffer);
 
         erosionShader.SetInt("mapSizeWithBorder", mapSizeWithBorder);
         erosionShader.SetInt("borderSize", borderSize);
@@ -235,7 +221,8 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
         erosionShader.SetFloat("erodeSpeed", config.erodeSpeed);
     }
 
-    private RenderTexture BuildHaloMap(IChunk<RenderTexture> chunk, int borderSize, INoiseGenerator generator)
+    /**
+    private RenderTexture BuildHaloMap(IChunk<RenderTexture> chunk, int borderSize, IGraphGenerator generator, TerrainRuntimeGraph graph)
     {
         RenderTexture sourceMap = chunk.GetHeightMapData();
         if (sourceMap == null) return null;
@@ -243,9 +230,9 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
         int resolution = sourceMap.width;
         int borderedResolution = resolution + borderSize * 2;
 
-        RenderTexture haloMap = generator.GenerateTexture(chunk.Coordinates, resolution, borderSize);
+        RenderTexture haloMap = generator.Execute(graph, chunk.Coordinates, resolution, borderSize);
 
-        foreach (Direction dir in System.Enum.GetValues(typeof(Direction)))
+        foreach (NeighborDirection dir in System.Enum.GetValues(typeof(NeighborDirection)))
         {
             if (chunk.GetNeighbor(dir) is IChunk<RenderTexture> neighbor)
             {
@@ -257,6 +244,7 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
 
         return haloMap;
     }
+    **/
 
     /// <summary>
     /// Deconstructs the halo map after erosion, copying the modified center back to the source chunk
@@ -267,7 +255,7 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
     {
         var dirtiedNeighbors = new List<IChunk>();
 
-        foreach (Direction dir in System.Enum.GetValues(typeof(Direction)))
+        foreach (NeighborDirection dir in System.Enum.GetValues(typeof(NeighborDirection)))
         {
             if (sourceChunk.GetNeighbor(dir) is IChunk<RenderTexture> neighbor)
             {
@@ -285,7 +273,7 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
     /// <summary>
     /// Copies the modified border data FROM the haloMap BACK to the neighbor's permanent texture.
     /// </summary>
-    private void CommitBorderToNeighbor(RenderTexture haloMap, IChunk<RenderTexture> neighbor, Direction directionOfNeighbor, int borderSize)
+    private void CommitBorderToNeighbor(RenderTexture haloMap, IChunk<RenderTexture> neighbor, NeighborDirection directionOfNeighbor, int borderSize)
     {
         BorderCopyData copyData = GetBorderCopyData(directionOfNeighbor, neighbor.GetHeightMapData().width, borderSize);
 
@@ -298,7 +286,7 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
         );
     }
 
-    private void CopyNeighborBorder(RenderTexture haloMap, RenderTexture neighborMap, Direction dir, int borderSize)
+    private void CopyNeighborBorder(RenderTexture haloMap, RenderTexture neighborMap, NeighborDirection dir, int borderSize)
     {
         BorderCopyData copyData = GetBorderCopyData(dir, neighborMap.width, borderSize);
 
@@ -315,48 +303,48 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
     }
 
     // TODO Test schreiben
-    private BorderCopyData GetBorderCopyData(Direction dir, int resolution, int borderSize)
+    private BorderCopyData GetBorderCopyData(NeighborDirection dir, int resolution, int borderSize)
     {
         int borderedResolution = resolution + borderSize * 2;
 
         return dir switch
         {
-            Direction.North => new BorderCopyData
+            NeighborDirection.North => new BorderCopyData
             {
                 SourceRect = new RectInt(0, 0, resolution, borderSize),
                 DestinationOrigin = new Vector2Int(borderSize, borderedResolution - borderSize)
             },
-            Direction.East => new BorderCopyData
+            NeighborDirection.East => new BorderCopyData
             {
                 SourceRect = new RectInt(0, 0, borderSize, resolution),
                 DestinationOrigin = new Vector2Int(borderedResolution - borderSize, borderSize)
             },
-            Direction.South => new BorderCopyData
+            NeighborDirection.South => new BorderCopyData
             {
                 SourceRect = new RectInt(0, resolution - borderSize, resolution, borderSize),
                 DestinationOrigin = new Vector2Int(borderSize, 0)
             },
-            Direction.West => new BorderCopyData
+            NeighborDirection.West => new BorderCopyData
             {
                 SourceRect = new RectInt(resolution - borderSize, 0, borderSize, resolution),
                 DestinationOrigin = new Vector2Int(0, borderSize)
             },
-            Direction.NorthEast => new BorderCopyData
+            NeighborDirection.NorthEast => new BorderCopyData
             {
                 SourceRect = new RectInt(0, 0, borderSize, borderSize),
                 DestinationOrigin = new Vector2Int(borderedResolution - borderSize, borderedResolution - borderSize)
             },
-            Direction.SouthEast => new BorderCopyData
+            NeighborDirection.SouthEast => new BorderCopyData
             {
                 SourceRect = new RectInt(0, resolution - borderSize, borderSize, borderSize),
                 DestinationOrigin = new Vector2Int(borderedResolution - borderSize, 0)
             },
-            Direction.SouthWest => new BorderCopyData
+            NeighborDirection.SouthWest => new BorderCopyData
             {
                 SourceRect = new RectInt(resolution - borderSize, resolution - borderSize, borderSize, borderSize),
                 DestinationOrigin = new Vector2Int(0, 0)
             },
-            Direction.NorthWest => new BorderCopyData
+            NeighborDirection.NorthWest => new BorderCopyData
             {
                 SourceRect = new RectInt(resolution - borderSize, 0, borderSize, borderSize),
                 DestinationOrigin = new Vector2Int(0, borderedResolution - borderSize)
@@ -374,14 +362,9 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
         ReleaseAllBuffers();
     }
 
-    public void ClearOutgoingBuffers()
+    public void ClearOutgoingBuffer()
     {
-        if (_outgoingParticleBuffers == null) return;
-
-        foreach (var buffer in _outgoingParticleBuffers)
-        {
-            buffer?.SetCounterValue(0);
-        }
+        _outgoingParticleBuffer?.SetCounterValue(0);
     }
 
     private void ReleaseAllBuffers()
@@ -390,18 +373,12 @@ public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
         _brushWeightsBuffer?.Release();
         _particleStartBuffer?.Release();
         _particleCountBuffer?.Release();
-        if (_outgoingParticleBuffers != null)
-        {
-            foreach (var buffer in _outgoingParticleBuffers)
-            {
-                buffer?.Release();
-            }
-        }
+        _outgoingParticleBuffer?.Release();
         _brushIndicesBuffer = null;
         _brushWeightsBuffer = null;
         _particleStartBuffer = null;
         _particleCountBuffer = null;
-        _outgoingParticleBuffers = null;
+        _outgoingParticleBuffer = null;
     }
 
 

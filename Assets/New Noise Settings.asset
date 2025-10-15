@@ -13,14 +13,14 @@ MonoBehaviour:
   m_Name: New Noise Settings
   m_EditorClassIdentifier: Unity.TerrainTools.Editor::UnityEditor.TerrainTools.NoiseSettings
   transformSettings:
-    translation: {x: 1.303556, y: 0, z: 0.28967902}
-    scale: {x: 5.0510964, y: 5, z: 5.0510964}
+    translation: {x: 1.7770963, y: 0, z: 0.25021735}
+    scale: {x: 4.717695, y: 5, z: 4.717695}
     rotation: {x: 0, y: 0, z: 0}
     flipScaleX: 0
     flipScaleY: 0
     flipScaleZ: 0
   domainSettings:
-    noiseTypeName: Perlin
+    noiseTypeName: Value
     fractalTypeName: Fbm
     noiseTypeParams: 
     fractalTypeParams: '{"warpOffsets":{"x":2.5,"y":1.399999976158142,"z":3.200000047683716,"w":2.700000047683716},"octavesMinMax":{"x":0.0,"y":16.0},"amplitudeMinMax":{"x":0.0,"y":1.0},"frequencyMinMax":{"x":0.0,"y":2.0},"lacunarityMinMax":{"x":0.0,"y":4.0},"persistenceMinMax":{"x":0.0,"y":1.0},"warpIterationsMinMax":{"x":0.0,"y":8.0},"warpStrengthMinMax":{"x":-2.0,"y":2.0},"octaves":7.710000038146973,"amplitude":0.5,"frequency":1.0,"persistence":0.5270000100135803,"lacunarity":2.559999942779541,"warpIterations":1.0,"warpStrength":0.5,"warpEnabled":false,"warpExpanded":true}'

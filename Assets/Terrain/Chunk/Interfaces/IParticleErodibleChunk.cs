@@ -27,5 +27,5 @@ public interface IParticleErodibleChunk : IChunk<RenderTexture>
     /// Used for pending particles when a chunk is first loaded.
     /// </summary>
     /// <param name="particles">The list of particles to upload.</param>
-    void AppendFromCPU(List<OutgoingParticle> particles, ComputeShader transferShader);
+    void AppendFromCPU(List<Particle> particles, ComputeShader transferShader);
 }

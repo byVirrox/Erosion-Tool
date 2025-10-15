@@ -9,4 +9,5 @@ public struct Particle
     public float water;
     public float sediment;
     public int lifetime;
+    public int status;
 }

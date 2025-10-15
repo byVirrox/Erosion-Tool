@@ -60,12 +60,12 @@ public class UnityChunk : BaseChunk, IChunk<RenderTexture>, IParticleErodibleChu
 
     #region Interface Implementations
 
-    public void AppendFromCPU(List<OutgoingParticle> particles, ComputeShader transferShader)
+    public void AppendFromCPU(List<Particle> particles, ComputeShader transferShader)
     {
         if (particles == null || particles.Count == 0) 
             return;
 
-        ComputeBuffer tempCpuBuffer = new ComputeBuffer(particles.Count, Marshal.SizeOf<OutgoingParticle>());
+        ComputeBuffer tempCpuBuffer = new ComputeBuffer(particles.Count, Marshal.SizeOf<Particle>());
         tempCpuBuffer.SetData(particles);
 
         int kernel = transferShader.FindKernel("CopyAppendParticles");

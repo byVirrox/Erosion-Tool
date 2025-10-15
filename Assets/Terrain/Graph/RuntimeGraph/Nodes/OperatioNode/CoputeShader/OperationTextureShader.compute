@@ -1,0 +1,82 @@
+#pragma kernel Add
+#pragma kernel Subtract
+#pragma kernel Multiply
+#pragma kernel Divide
+
+#pragma kernel AddByValue
+#pragma kernel SubtractByValue
+#pragma kernel MultiplyByValue
+#pragma kernel DivideByValue
+#pragma kernel Power
+
+Texture2D<float> InputA;
+Texture2D<float> InputB;
+
+float Value;
+
+RWTexture2D<float> Result;
+
+
+[numthreads(8, 8, 1)]
+void Add(uint3 id : SV_DispatchThreadID)
+{
+    Result[id.xy] = InputA[id.xy] + InputB[id.xy];
+}
+
+[numthreads(8, 8, 1)]
+void Subtract(uint3 id : SV_DispatchThreadID)
+{
+    Result[id.xy] = InputA[id.xy] - InputB[id.xy];
+}
+
+[numthreads(8, 8, 1)]
+void Multiply(uint3 id : SV_DispatchThreadID)
+{
+    Result[id.xy] = InputA[id.xy] * InputB[id.xy];
+}
+
+[numthreads(8, 8, 1)]
+void Divide(uint3 id : SV_DispatchThreadID)
+{
+    if (InputB[id.xy] == 0.0)
+    {
+        Result[id.xy] = 0.0;
+        return;
+    }
+    Result[id.xy] = InputA[id.xy] / InputB[id.xy];
+}
+
+[numthreads(8, 8, 1)]
+void AddByValue(uint3 id : SV_DispatchThreadID)
+{
+    Result[id.xy] = InputA[id.xy] + Value;
+}
+
+[numthreads(8, 8, 1)]
+void SubtractByValue(uint3 id : SV_DispatchThreadID)
+{
+    Result[id.xy] = InputA[id.xy] - Value;
+}
+
+[numthreads(8, 8, 1)]
+void MultiplyByValue(uint3 id : SV_DispatchThreadID)
+{
+    Result[id.xy] = InputA[id.xy] * Value;
+}
+
+[numthreads(8, 8, 1)]
+void DivideByValue(uint3 id : SV_DispatchThreadID)
+{
+    if (Value == 0.0)
+    {
+        Result[id.xy] = 0.0;
+        return;
+    }
+    Result[id.xy] = InputA[id.xy] / Value;
+}
+
+[numthreads(8, 8, 1)]
+void Power(uint3 id : SV_DispatchThreadID)
+{
+    Result[id.xy] = pow(InputA[id.xy], Value);
+}

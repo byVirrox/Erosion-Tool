@@ -6,10 +6,5 @@ struct Particle
     float water;
     float sediment;
     int lifetime;
-};
-
-struct OutgoingParticle
-{
-    Particle particle;
     int exitDirection;
 };

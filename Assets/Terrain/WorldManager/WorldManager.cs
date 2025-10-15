@@ -2,274 +2,198 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-public class WorldManager : MonoBehaviour, IWorldManager
+public class WorldManager : AbstractWorldManager<UnityChunk, UnityChunkFactory>, IParticleWorldManager
 {
-    [Header("World Settings")]
-    [Tooltip("The transform to track as the center of the world (usually the player).")]
-    public Transform player;
-    [Tooltip("The number of chunks to load in each direction from the center.")]
-    public int viewDistanceInChunks = 8;
-    [Tooltip("The resolution of each chunk's heightmap (e.g., 129, 257).")]
-    public int chunkResolution = 129;
-    [Tooltip("Die Größe eines Chunks in Welt-Einheiten (Metern).")]
-    public float chunkSizeInWorldUnits = 128f;
-    [Header("World Settings")]
-    public int worldSeed = 0;
-
-
-    [Header("Services & Data")]
-    [SerializeField] private UnityChunkFactory chunkFactory;
+    [Header("System-Specific Dependencies")]
     [SerializeField] private ParticleTerrainEroder eroder;
 
-
     [Header("Visuals")]
-    public GameObject terrainPrefab;
+    [SerializeField] private GameObject terrainPrefab;
 
     private ITerrainParticleEroder _eroder;
-    private IChunkFactory _chunkFactory;
 
-    private Dictionary<GridCoordinates, IChunk> _activeChunks = new Dictionary<GridCoordinates, IChunk>();
-    private Queue<IChunk> _dirtyChunksQueue = new Queue<IChunk>();
-    private HashSet<IChunk> _chunksInQueue = new HashSet<IChunk>();
-    private GridCoordinates _currentCenterCoords;
+    private readonly Dictionary<GridCoordinates, Terrain> _activeTerrainObjects = new Dictionary<GridCoordinates, Terrain>();
+    private readonly Dictionary<GridCoordinates, List<Particle>> _pendingParticles = new Dictionary<GridCoordinates, List<Particle>>();
+    private readonly Queue<UnityChunk> _dirtyChunksQueue = new Queue<UnityChunk>();
+    private readonly HashSet<UnityChunk> _chunksInQueue = new HashSet<UnityChunk>();
+    private ITerrainGenerator _terrainGenerator;
 
-    private Dictionary<GridCoordinates, Terrain> _activeTerrainObjects = new Dictionary<GridCoordinates, Terrain>();
-    private Dictionary<GridCoordinates, List<OutgoingParticle>> _pendingParticles = new Dictionary<GridCoordinates, List<OutgoingParticle>>();
+    #region Overridden Base Methods
 
-    public IReadOnlyDictionary<GridCoordinates, IChunk> ActiveChunks => _activeChunks;
-
-    #region Unity Lifecycle
-
-    private void Awake()
+    protected override void InitializeServices()
     {
-        _chunkFactory = chunkFactory;
         _eroder = eroder;
-        _currentCenterCoords = new GridCoordinates(int.MaxValue, int.MaxValue);
+
+        _terrainGenerator = chunkFactory.GetGenerator();
     }
 
-    private void Update()
+    protected override void LoadChunk(GridCoordinates coords)
     {
-        if (player == null) return;
 
-        UpdateViewPosition(player.position);
-        ProcessDirtyChunks();
-    }
+        base.LoadChunk(coords);
 
-    #endregion
-
-    #region IWorldManager Implementation
-
-    public void UpdateViewPosition(Vector3 newViewPosition)
-    {
-        GridCoordinates playerCoords = WorldPositionToGridCoordinates(newViewPosition);
-
-        if (playerCoords.Equals(_currentCenterCoords))
+        if (_activeChunks.TryGetValue(coords, out UnityChunk newChunk))
         {
-            return;
-        }
-        _currentCenterCoords = playerCoords;
-
-        // chunks laden die gebraucht werden
-        HashSet<GridCoordinates> requiredCoords = new HashSet<GridCoordinates>();
-        for (int y = -viewDistanceInChunks; y <= viewDistanceInChunks; y++)
-        {
-            for (int x = -viewDistanceInChunks; x <= viewDistanceInChunks; x++)
-            {
-                requiredCoords.Add(new GridCoordinates(_currentCenterCoords.X + x, _currentCenterCoords.Y + y));
-            }
-        }
-
-        // entladen von chunks
-        List<GridCoordinates> toUnload = _activeChunks.Keys.Where(c => !requiredCoords.Contains(c)).ToList();
-        foreach (var coords in toUnload)
-        {
-            UnloadChunk(coords);
-        }
-
-        // neue chunks laden
-        foreach (var coords in requiredCoords)
-        {
-            if (!_activeChunks.ContainsKey(coords))
-            {
-                LoadChunk(coords);
-            }
+            UploadPendingParticles(coords, newChunk);
+            MarkChunkAsDirty(newChunk);
         }
     }
 
-    public IChunk GetChunk(GridCoordinates coordinates)
+    protected override void SpawnChunkGameObject(UnityChunk chunk)
     {
-        _activeChunks.TryGetValue(coordinates, out IChunk chunk);
-        return chunk;
-    }
-
-    public void ForceFullRegeneration()
-    {
-        if (_chunkFactory == null)
-        {
-            Debug.LogError("ChunkFactory ist nicht zugewiesen. Regeneration nicht möglich.");
-            return;
-        }
-
-        var allActiveChunks = _activeChunks.Values.ToList();
-
-        Debug.Log($"Starte Regeneration für {allActiveChunks.Count} aktive Chunks...");
-
-        foreach (var chunk in allActiveChunks)
-        {
-            INoiseGenerator generator = _chunkFactory.GetNoiseGenerator();
-            if (generator == null) continue;
-
-            RenderTexture newHeightmap = generator.GenerateTexture(chunk.Coordinates, this.chunkResolution, 0);
-
-            (chunk as IChunk<RenderTexture>)?.GetHeightMapData()?.Release();
-            (chunk as IChunk<RenderTexture>)?.SetHeightMapData(newHeightmap); 
-
-            if (chunk is IParticleErodibleChunk erodibleChunk)
-            {
-                erodibleChunk.InitialParticlesDropped = false;
-                erodibleChunk.ClearIncomingParticles();
-            }
-
-            MarkChunkAsDirty(chunk);
-        }
-    }
-
-    public void MarkChunkAsDirty(IChunk chunk)
-    {
-        if (chunk == null) return;
-
-        if (!_chunksInQueue.Contains(chunk))
-        {
-            _dirtyChunksQueue.Enqueue(chunk);
-            _chunksInQueue.Add(chunk);
-        }
-    }
-
-    public void AddPendingParticles(GridCoordinates coords, List<OutgoingParticle> particles)
-    {
-        if (!_pendingParticles.ContainsKey(coords))
-        {
-            _pendingParticles[coords] = new List<OutgoingParticle>();
-        }
-        _pendingParticles[coords].AddRange(particles);
-    }
-
-
-    //TODO möglicher Fehler
-    public GridCoordinates GetNeighborCoords(GridCoordinates currentCoords, Direction dir)
-    {
-        return dir switch
-        {
-            Direction.North => new GridCoordinates(currentCoords.X, currentCoords.Y + 1),
-            Direction.NorthEast => new GridCoordinates(currentCoords.X + 1, currentCoords.Y + 1),
-            Direction.East => new GridCoordinates(currentCoords.X + 1, currentCoords.Y),
-            Direction.SouthEast => new GridCoordinates(currentCoords.X + 1, currentCoords.Y - 1),
-            Direction.South => new GridCoordinates(currentCoords.X, currentCoords.Y - 1),
-            Direction.SouthWest => new GridCoordinates(currentCoords.X - 1, currentCoords.Y - 1),
-            Direction.West => new GridCoordinates(currentCoords.X - 1, currentCoords.Y),
-            Direction.NorthWest => new GridCoordinates(currentCoords.X - 1, currentCoords.Y + 1),
-            _ => currentCoords
-        };
-    }
-
-
-    #endregion
-
-    #region Internal Logic
-
-    private void LoadChunk(GridCoordinates coords)
-    {
-        var newChunk = _chunkFactory.CreateChunk(coords, chunkResolution);
-        if (newChunk == null) return;
-
-        _activeChunks.Add(coords, newChunk);
-
-        Vector3 position = new Vector3(coords.X * chunkSizeInWorldUnits, 0, coords.Y * chunkSizeInWorldUnits);
+        Vector3 position = new Vector3(chunk.Coordinates.X * chunkSizeInWorldUnits, 0, chunk.Coordinates.Y * chunkSizeInWorldUnits);
         GameObject terrainObj = Instantiate(terrainPrefab, position, Quaternion.identity, this.transform);
-        terrainObj.name = $"Terrain Chunk ({coords.X}, {coords.Y})";
+        terrainObj.name = $"Terrain Chunk ({chunk.Coordinates.X}, {chunk.Coordinates.Y})";
 
         Terrain terrain = terrainObj.GetComponent<Terrain>();
-        TerrainCollider collider = terrainObj.GetComponent<TerrainCollider>(); 
+        TerrainCollider collider = terrainObj.GetComponent<TerrainCollider>();
 
         TerrainData clonedData = Instantiate(terrain.terrainData);
-
         terrain.terrainData = clonedData;
         collider.terrainData = clonedData;
 
         terrain.terrainData.heightmapResolution = chunkResolution;
         terrain.terrainData.size = new Vector3(chunkSizeInWorldUnits, terrain.terrainData.size.y, chunkSizeInWorldUnits);
 
-        _activeTerrainObjects.Add(coords, terrain);
-
-        (newChunk as UnityChunk)?.ApplyToTerrain(terrain);
-
-        // Nachbarn verlinken
-        foreach (Direction dir in System.Enum.GetValues(typeof(Direction)))
-        {
-            GridCoordinates neighborCoords = GetNeighborCoords(coords, dir);
-            if (_activeChunks.TryGetValue(neighborCoords, out IChunk neighbor))
-            {
-                newChunk.SetNeighbor(dir, neighbor);
-                neighbor.SetNeighbor(GetOppositeDirection(dir), newChunk);
-            }
-        }
-        UploadPendingParticles(coords, newChunk);
-
-        MarkChunkAsDirty(newChunk);
+        _activeTerrainObjects.Add(chunk.Coordinates, terrain);
+        chunk.ApplyToTerrain(terrain);
     }
 
-    private void UnloadChunk(GridCoordinates coords)
+    protected override void DespawnChunkGameObject(UnityChunk chunk)
     {
-        if (_activeChunks.TryGetValue(coords, out IChunk chunkToUnload))
+        if (_activeTerrainObjects.TryGetValue(chunk.Coordinates, out Terrain terrainToDestroy))
         {
-            (chunkToUnload as UnityChunk)?.ReleaseResources();
+            chunk.ReleaseResources();
 
-            if (_activeTerrainObjects.TryGetValue(coords, out Terrain terrainToDestroy))
-            {
-                Destroy(terrainToDestroy.terrainData);
-                Destroy(terrainToDestroy.gameObject);
-                _activeTerrainObjects.Remove(coords);
-            }
-
-            foreach (Direction dir in System.Enum.GetValues(typeof(Direction)))
-            {
-                if (chunkToUnload.GetNeighbor(dir) is IChunk neighbor)
-                {
-                    neighbor.SetNeighbor(GetOppositeDirection(dir), null);
-                }
-            }
-
-            _activeChunks.Remove(coords);
+            Destroy(terrainToDestroy.terrainData);
+            Destroy(terrainToDestroy.gameObject);
+            _activeTerrainObjects.Remove(chunk.Coordinates);
         }
     }
 
-    private void UploadPendingParticles(GridCoordinates coords, IChunk chunk)
+    protected override void ProcessQueues()
     {
-        if (_pendingParticles.TryGetValue(coords, out List<OutgoingParticle> particles))
+        ProcessDirtyChunks();
+    }
+
+    /**
+    public override void ForceFullRegeneration()
+    {
+        Debug.Log($"Starting regeneration for {_activeChunks.Count} active chunks...");
+        foreach (var chunk in _activeChunks.Values)
         {
-            (chunk as UnityChunk)?.AppendFromCPU(particles, eroder.GetTransferShader());
-            _pendingParticles.Remove(coords);
+            var regeneratedChunk = chunkFactory.CreateChunk(chunk.Coordinates, chunkResolution, worldSeed);
+            RenderTexture newHeightmap = regeneratedChunk.GetHeightMapData();
+
+            var oldHeightmap = chunk.GetHeightMapData();
+            chunk.SetHeightMapData(newHeightmap);
+            if (oldHeightmap != null) { RenderTexture.ReleaseTemporary(oldHeightmap); }
+
+            chunk.InitialParticlesDropped = false;
+            chunk.ClearIncomingParticles();
+
+            MarkChunkAsDirty(chunk);
         }
     }
+    **/
+
+    public override void ForceFullRegeneration()
+    {
+        if (_terrainGenerator == null)
+        {
+            Debug.LogError("Terrain Generator is not initialized. Cannot regenerate.");
+            return;
+        }
+
+        Debug.Log($"Starting regeneration for {_activeChunks.Count} active chunks...");
+
+        var chunksToRegenerate = _activeChunks.Values.ToList();
+
+        foreach (var chunk in chunksToRegenerate)
+        {
+            var context = new TerrainGenerationContext
+            {
+                Coords = chunk.Coordinates,
+                Resolution = chunkResolution,
+                BorderSize = 0,
+                WorldSeed = worldSeed
+            };
+
+            RenderTexture newHeightmap = _terrainGenerator.Generate(context);
+            if (newHeightmap == null)
+            {
+                Debug.LogError($"Failed to regenerate heightmap for chunk at {chunk.Coordinates}");
+                continue;
+            }
+
+            var oldHeightmap = chunk.GetHeightMapData();
+            chunk.SetHeightMapData(newHeightmap);
+
+            if (oldHeightmap != null)
+            {
+                RenderTexture.ReleaseTemporary(oldHeightmap);
+            }
+
+
+            chunk.InitialParticlesDropped = false;
+            chunk.ClearIncomingParticles();
+
+            MarkChunkAsDirty(chunk);
+        }
+    }
+
+    #endregion
+
+        #region IParticleWorldManager Implementation
+
+
+    public void MarkChunkAsDirty(IChunk chunk)
+    {
+        if (chunk is UnityChunk typedChunk && !_chunksInQueue.Contains(typedChunk))
+        {
+            _dirtyChunksQueue.Enqueue(typedChunk);
+            _chunksInQueue.Add(typedChunk);
+        }
+    }
+
+    public void AddPendingParticles(GridCoordinates coords, List<Particle> particles)
+    {
+        if (!_pendingParticles.ContainsKey(coords))
+        {
+            _pendingParticles[coords] = new List<Particle>();
+        }
+        _pendingParticles[coords].AddRange(particles);
+    }
+
+
+    #endregion
+
+    #region System-Specific Logic
 
     private void ProcessDirtyChunks()
     {
         if (_dirtyChunksQueue.Count > 0)
         {
-            IChunk chunkToProcess = _dirtyChunksQueue.Dequeue();
-            _chunksInQueue.Remove(chunkToProcess);
+            UnityChunk chunkToProcess = _dirtyChunksQueue.Dequeue();
 
-            chunkToProcess.IsDirty = true;
+            int borderSize = eroder.config.erosionBrushRadius;
 
-            if (chunkToProcess is not IParticleErodibleChunk erodibleChunk)
+            var haloContext = new TerrainGenerationContext
             {
-                chunkToProcess.IsDirty = false;
-                return;
-            }
+                Coords = chunkToProcess.Coordinates,
+                Resolution = this.chunkResolution,
+                BorderSize = borderSize,
+                WorldSeed = this.worldSeed
+            };
 
-            var erosionResult = _eroder.Erode(erodibleChunk, _chunkFactory.GetNoiseGenerator(), worldSeed);
+            RenderTexture haloMap = HaloMapUtility.BuildHaloMap(chunkToProcess, borderSize, _terrainGenerator, haloContext);
 
-            ParticleTransferService.ProcessTransfers(erodibleChunk, _eroder, this, erosionResult.OutgoingParticleCounts);
+            var erosionResult = _eroder.Erode(chunkToProcess, haloMap, worldSeed);
+
+
+            RenderTexture.ReleaseTemporary(haloMap);
+
+            ParticleTransferService.ProcessTransfers(chunkToProcess, _eroder, this);
 
             if (erosionResult.DirtiedNeighbors != null)
             {
@@ -279,11 +203,22 @@ public class WorldManager : MonoBehaviour, IWorldManager
                 }
             }
 
-            if (_activeTerrainObjects.TryGetValue(erodibleChunk.Coordinates, out Terrain terrainToUpdate))
+            if (_activeTerrainObjects.TryGetValue(chunkToProcess.Coordinates, out Terrain terrainToUpdate))
             {
-                (erodibleChunk as UnityChunk)?.ApplyToTerrain(terrainToUpdate);
+                chunkToProcess.ApplyToTerrain(terrainToUpdate);
             }
-            erodibleChunk.IsDirty = false;
+
+            chunkToProcess.IsDirty = false;
+        }
+    }
+
+
+    private void UploadPendingParticles(GridCoordinates coords, IChunk chunk)
+    {
+        if (_pendingParticles.TryGetValue(coords, out List<Particle> particles))
+        {
+            (chunk as IParticleErodibleChunk)?.AppendFromCPU(particles, eroder.GetTransferShader());
+            _pendingParticles.Remove(coords);
         }
     }
 
@@ -300,29 +235,160 @@ public class WorldManager : MonoBehaviour, IWorldManager
         }
     }
 
-    // Hilfsmethoden, um Koordinaten zu berechnen etc.
-    private GridCoordinates WorldPositionToGridCoordinates(Vector3 position)
-    {
-        int x = Mathf.FloorToInt(position.x / chunkSizeInWorldUnits);
-        int y = Mathf.FloorToInt(position.z / chunkSizeInWorldUnits);
-        return new GridCoordinates(x, y);
-    }
 
-    private Direction GetOppositeDirection(Direction dir)
-    {
-        return dir switch
-        {
-            Direction.North => Direction.South,
-            Direction.NorthEast => Direction.SouthWest,
-            Direction.East => Direction.West,
-            Direction.SouthEast => Direction.NorthWest,
-            Direction.South => Direction.North,
-            Direction.SouthWest => Direction.NorthEast,
-            Direction.West => Direction.East,
-            Direction.NorthWest => Direction.SouthEast,
-            _ => dir 
-        };
-    }
 
     #endregion
+
+    /**
+public void ForceFullRegeneration()
+{
+    if (_chunkFactory == null)
+    {
+        Debug.LogError("ChunkFactory ist nicht zugewiesen. Regeneration nicht möglich.");
+        return;
+    }
+
+    var allActiveChunks = _activeChunks.Values.ToList();
+
+    Debug.Log($"Starte Regeneration für {allActiveChunks.Count} aktive Chunks...");
+
+    foreach (var chunk in allActiveChunks)
+    {
+        var regeneratedChunk = _chunkFactory.CreateChunk(chunk.Coordinates, chunkResolution, terrainGenerationGraph);
+        RenderTexture newHeightmap = (regeneratedChunk as IChunk<RenderTexture>).GetHeightMapData();
+
+        (chunk as IChunk<RenderTexture>)?.GetHeightMapData()?.Release();
+        (chunk as IChunk<RenderTexture>)?.SetHeightMapData(newHeightmap);
+
+        if (chunk is IParticleErodibleChunk erodibleChunk)
+        {
+            erodibleChunk.InitialParticlesDropped = false;
+            erodibleChunk.ClearIncomingParticles();
+        }
+
+        MarkChunkAsDirty(chunk);
+    }
+}
+**/
+
+
+    /**
+public void MarkChunkAsDirty(IChunk chunk)
+{
+    if (chunk == null) return;
+
+    if (!_chunksInQueue.Contains(chunk))
+    {
+        _dirtyChunksQueue.Enqueue(chunk);
+        _chunksInQueue.Add(chunk);
+    }
+}
+**/
+
+    /**
+private void ProcessDirtyChunks()
+{
+    if (_dirtyChunksQueue.Count > 0)
+    {
+        IChunk chunkToProcess = _dirtyChunksQueue.Dequeue();
+        _chunksInQueue.Remove(chunkToProcess);
+
+        chunkToProcess.IsDirty = true;
+
+        if (chunkToProcess is not IParticleErodibleChunk erodibleChunk)
+        {
+            chunkToProcess.IsDirty = false;
+            return;
+        }
+
+        var erosionResult = _eroder.Erode(erodibleChunk, _graphGenerator, terrainGenerationGraph, worldSeed);
+
+        ParticleTransferService.ProcessTransfers(erodibleChunk, _eroder, this);
+
+        if (erosionResult.DirtiedNeighbors != null)
+        {
+            foreach (var neighbor in erosionResult.DirtiedNeighbors)
+            {
+                MarkChunkAsDirty(neighbor);
+            }
+        }
+
+        if (_activeTerrainObjects.TryGetValue(erodibleChunk.Coordinates, out Terrain terrainToUpdate))
+        {
+            (erodibleChunk as UnityChunk)?.ApplyToTerrain(terrainToUpdate);
+        }
+        erodibleChunk.IsDirty = false;
+    }
+}
+**/
+
+    /**
+private void LoadChunk(GridCoordinates coords)
+{
+    var newChunk = _chunkFactory.CreateChunk(coords, chunkResolution, terrainGenerationGraph);
+
+    if (newChunk == null) return;
+
+    _activeChunks.Add(coords, newChunk);
+
+    Vector3 position = new Vector3(coords.X * chunkSizeInWorldUnits, 0, coords.Y * chunkSizeInWorldUnits);
+    GameObject terrainObj = Instantiate(terrainPrefab, position, Quaternion.identity, this.transform);
+    terrainObj.name = $"Terrain Chunk ({coords.X}, {coords.Y})";
+
+    Terrain terrain = terrainObj.GetComponent<Terrain>();
+    TerrainCollider collider = terrainObj.GetComponent<TerrainCollider>(); 
+
+    TerrainData clonedData = Instantiate(terrain.terrainData);
+
+    terrain.terrainData = clonedData;
+    collider.terrainData = clonedData;
+
+    terrain.terrainData.heightmapResolution = chunkResolution;
+    terrain.terrainData.size = new Vector3(chunkSizeInWorldUnits, terrain.terrainData.size.y, chunkSizeInWorldUnits);
+
+    _activeTerrainObjects.Add(coords, terrain);
+
+    (newChunk as UnityChunk)?.ApplyToTerrain(terrain);
+
+    foreach (NeighborDirection dir in System.Enum.GetValues(typeof(NeighborDirection)))
+    {
+        GridCoordinates neighborCoords = WorldCoordinateUtils.GetNeighborCoords(coords, dir);
+        if (_activeChunks.TryGetValue(neighborCoords, out IChunk neighbor))
+        {
+            newChunk.SetNeighbor(dir, neighbor);
+            neighbor.SetNeighbor(WorldCoordinateUtils.GetOppositeDirection(dir), newChunk);
+        }
+    }
+    UploadPendingParticles(coords, newChunk);
+
+    MarkChunkAsDirty(newChunk);
+}
+**/
+
+    /**
+    private void UnloadChunk(GridCoordinates coords)
+    {
+        if (_activeChunks.TryGetValue(coords, out IChunk chunkToUnload))
+        {
+            (chunkToUnload as UnityChunk)?.ReleaseResources();
+
+            if (_activeTerrainObjects.TryGetValue(coords, out Terrain terrainToDestroy))
+            {
+                Destroy(terrainToDestroy.terrainData);
+                Destroy(terrainToDestroy.gameObject);
+                _activeTerrainObjects.Remove(coords);
+            }
+
+            foreach (NeighborDirection dir in System.Enum.GetValues(typeof(NeighborDirection)))
+            {
+                if (chunkToUnload.GetNeighbor(dir) is IChunk neighbor)
+                {
+                    neighbor.SetNeighbor(WorldCoordinateUtils.GetOppositeDirection(dir), null);
+                }
+            }
+
+            _activeChunks.Remove(coords);
+        }
+    }
+    **/
 }

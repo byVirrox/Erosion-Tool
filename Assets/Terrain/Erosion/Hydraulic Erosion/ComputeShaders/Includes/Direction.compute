@@ -6,6 +6,7 @@
 #define DIR_SOUTH_WEST 5
 #define DIR_WEST       6
 #define DIR_NORTH_WEST 7
+#define InChunk 8
 
 int GetExitDirection(bool n, bool e, bool s, bool w)
 {

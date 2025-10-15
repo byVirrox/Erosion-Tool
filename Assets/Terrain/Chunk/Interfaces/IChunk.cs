@@ -18,16 +18,10 @@ public interface IChunk
     /// </summary>
     /// <param name="direction">The direction of the neighbor (e.g., North, East).</param>
     /// <param name="neighbor">The instance of the neighboring chunk.</param>
-    void SetNeighbor(Direction direction, IChunk neighbor);
+    void SetNeighbor(NeighborDirection direction, IChunk neighbor);
 
     /// <summary>
     /// Gets the neighboring chunk in a given direction.
     /// </summary>
-    IChunk GetNeighbor(Direction direction);
-}
-
-public enum Direction
-{
-    North, NorthEast, East, SouthEast,
-    South, SouthWest, West, NorthWest
+    IChunk GetNeighbor(NeighborDirection direction);
 }

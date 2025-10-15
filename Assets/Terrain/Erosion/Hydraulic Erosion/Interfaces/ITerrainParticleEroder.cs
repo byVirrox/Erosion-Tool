@@ -8,11 +8,6 @@ using UnityEngine;
 public struct ErosionResult
 {
     /// <summary>
-    /// A dictionary mapping the outgoing buffer index to the number of particles that exited.
-    /// </summary>
-    public Dictionary<int, int> OutgoingParticleCounts;
-
-    /// <summary>
     /// A list of neighboring chunks that were modified during the erosion pass
     /// (by having their borders eroded) and now need to be marked as dirty.
     /// </summary>
@@ -24,12 +19,12 @@ public struct ErosionResult
 /// </summary>
 public interface ITerrainParticleEroder
 {
-    public ErosionResult Erode(IParticleErodibleChunk chunk, INoiseGenerator generator, int worldSeed);
+    ErosionResult Erode(IParticleErodibleChunk chunk, RenderTexture haloMap, int worldSeed);
 
     ComputeShader GetTransferShader();
 
-    void ClearOutgoingBuffers();
-    ComputeBuffer[] GetOutgoingBuffers();
+    void ClearOutgoingBuffer();
+    ComputeBuffer GetOutgoingBuffer();
     /// <summary>
     /// Gets the number of elements currently in an Append-type ComputeBuffer on the GPU.
     /// </summary>

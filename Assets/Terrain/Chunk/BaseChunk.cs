@@ -8,7 +8,7 @@ public abstract class BaseChunk : IChunk
     public GridCoordinates Coordinates { get; protected set; }
     public bool IsDirty { get; set; }
 
-    protected Dictionary<Direction, IChunk> neighbors = new Dictionary<Direction, IChunk>();
+    protected Dictionary<NeighborDirection, IChunk> neighbors = new Dictionary<NeighborDirection, IChunk>();
 
     protected BaseChunk(GridCoordinates coordinates)
     {
@@ -16,12 +16,12 @@ public abstract class BaseChunk : IChunk
         this.IsDirty = true;
     }
 
-    public void SetNeighbor(Direction direction, IChunk neighbor)
+    public void SetNeighbor(NeighborDirection direction, IChunk neighbor)
     {
         neighbors[direction] = neighbor;
     }
 
-    public IChunk GetNeighbor(Direction direction)
+    public IChunk GetNeighbor(NeighborDirection direction)
     {
         neighbors.TryGetValue(direction, out IChunk neighbor);
         return neighbor;

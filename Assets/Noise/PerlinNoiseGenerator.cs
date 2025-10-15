@@ -1,5 +1,6 @@
 using UnityEngine;
 
+/**
 public class PerlinNoiseGenerator : INoiseGenerator
 {
     public int Seed { get; set; }
@@ -21,3 +22,4 @@ public class PerlinNoiseGenerator : INoiseGenerator
         return Mathf.PerlinNoise(noiseX, noiseZ);
     }
 }
+**/

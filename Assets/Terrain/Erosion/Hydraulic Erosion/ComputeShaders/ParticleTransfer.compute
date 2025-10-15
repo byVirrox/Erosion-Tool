@@ -1,12 +1,12 @@
 #pragma kernel CopyAppendParticles
 #include "Includes/Particle.compute"
 
-StructuredBuffer<OutgoingParticle> Source;
+StructuredBuffer<Particle> Source;
 
 AppendStructuredBuffer<Particle> Destination;
 
 [numthreads(64, 1, 1)]
 void CopyAppendParticles(uint3 id : SV_DispatchThreadID)
 {
-    Destination.Append(Source[id.x].particle);
+    Destination.Append(Source[id.x]);
 }
