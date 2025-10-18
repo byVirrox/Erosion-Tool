@@ -1,4 +1,3 @@
-using Codice.CM.Common;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "NewFbmGenerator", menuName = "Terrain/FBM Generator Asset")]
@@ -91,5 +90,4 @@ public class FbmNoiseGenerator : TerrainGenerator
         _permBuffer.SetData(perm);
         _lastUsedSeed = seed;
     }
-
 }

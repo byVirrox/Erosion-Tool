@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Abstrakte Basisklasse für alle Terrain-Generatoren, die als ScriptableObject-Assets existieren.
-/// Stellt sicher, dass nur gültige Generatoren im Inspector zugewiesen werden können.
+/// Abstract base class for all terrain generators that exist as ScriptableObject assets.
+/// Ensures that only valid generators can be assigned in the Inspector.
 /// </summary>
 public abstract class TerrainGenerator : ScriptableObject, ITerrainGenerator
 {

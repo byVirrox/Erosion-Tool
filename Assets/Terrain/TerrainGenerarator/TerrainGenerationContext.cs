@@ -1,5 +1,3 @@
-using UnityEngine;
-
 public class TerrainGenerationContext
 {
     public GridCoordinates Coords { get; set; }

@@ -1,0 +1,31 @@
+#include "Includes/Direction.compute"
+#include "Includes/Particle.compute"
+
+StructuredBuffer<Particle> Source;
+AppendStructuredBuffer<Particle> Dest0; // z.B. North
+AppendStructuredBuffer<Particle> Dest1; // z.B. NorthEast
+AppendStructuredBuffer<Particle> Dest2; // z.B. East
+AppendStructuredBuffer<Particle> Dest3; // z.B. SouthEast
+
+[numthreads(64, 1, 1)]
+void Scatter(uint3 id : SV_DispatchThreadID)
+{
+    Particle op = Source[id.x];
+
+
+    switch (op.status)
+    {
+        case 0:
+            Dest0.Append(op);
+            break; 
+        case 1:
+            Dest1.Append(op);
+            break; 
+        case 2:
+            Dest2.Append(op);
+            break; 
+        case 3:
+            Dest3.Append(op);
+            break; 
+    }
+}

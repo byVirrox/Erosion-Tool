@@ -6,20 +6,15 @@ public abstract class AbstractWorldManager<TChunk, TFactory> : MonoBehaviour, IW
     where TChunk : class, IChunk
     where TFactory : ScriptableObject, IChunkFactory<TChunk>
 {
-    [Header("World Settings")]
-    [Tooltip("The transform to track as the center of the world (usually the player).")]
-    public Transform player;
-    [Tooltip("The number of chunks to load in each direction from the center.")]
-    public int viewDistanceInChunks = 8;
-    [Tooltip("The resolution of each chunk's heightmap (e.g., 129, 257).")]
-    public int chunkResolution = 129;
-    [Tooltip("Die Größe eines Chunks in Welt-Einheiten (Metern).")]
-    public float chunkSizeInWorldUnits = 128f;
-    [Header("World Settings")]
-    public int worldSeed = 0;
+    [Header("Configuration Assets")]
+    [Tooltip("Configuration for general world parameters (seed, view distance).")]
+    [SerializeField] protected WorldConfig worldConfig;
+    [Tooltip("The factory that contains the blueprint for individual chunks (resolution, size).")]
+    [SerializeField] protected TFactory chunkFactory;
 
-    [Header("Services & Data")]
-    [SerializeField] protected TFactory chunkFactory; 
+    [Header("World State")]
+    [Tooltip("The Transform, which is pursued as the center of the world (usually the player).")]
+    public Transform player;
 
     protected Dictionary<GridCoordinates, TChunk> _activeChunks = new Dictionary<GridCoordinates, TChunk>();
     private GridCoordinates _currentCenterCoords;
@@ -68,15 +63,14 @@ public abstract class AbstractWorldManager<TChunk, TFactory> : MonoBehaviour, IW
 
     #endregion
 
-    #region Core Logic (now in base class)
+    #region Core Logic 
 
     protected virtual void LoadChunk(GridCoordinates coords)
     {
-        TChunk newChunk = chunkFactory.CreateChunk(coords, chunkResolution, worldSeed);
+        TChunk newChunk = chunkFactory.CreateChunk(coords, worldConfig.worldSeed);
         if (newChunk == null) return;
 
         _activeChunks.Add(coords, newChunk);
-
         SpawnChunkGameObject(newChunk);
 
         foreach (NeighborDirection dir in System.Enum.GetValues(typeof(NeighborDirection)))
@@ -95,7 +89,6 @@ public abstract class AbstractWorldManager<TChunk, TFactory> : MonoBehaviour, IW
         if (_activeChunks.TryGetValue(coords, out TChunk chunkToUnload))
         {
             DespawnChunkGameObject(chunkToUnload);
-
             foreach (NeighborDirection dir in System.Enum.GetValues(typeof(NeighborDirection)))
             {
                 if (chunkToUnload.GetNeighbor(dir) is TChunk neighbor)
@@ -103,7 +96,6 @@ public abstract class AbstractWorldManager<TChunk, TFactory> : MonoBehaviour, IW
                     neighbor.SetNeighbor(WorldCoordinateUtils.GetOppositeDirection(dir), null);
                 }
             }
-
             _activeChunks.Remove(coords);
         }
     }
@@ -111,6 +103,7 @@ public abstract class AbstractWorldManager<TChunk, TFactory> : MonoBehaviour, IW
     #endregion
 
     #region IWorldManager Implementation
+
 
     public IReadOnlyDictionary<GridCoordinates, IChunk> ActiveChunks => _activeChunks.ToDictionary(kvp => kvp.Key, kvp => (IChunk)kvp.Value);
 
@@ -123,24 +116,23 @@ public abstract class AbstractWorldManager<TChunk, TFactory> : MonoBehaviour, IW
 
     public void UpdateViewPosition(Vector3 newViewPosition)
     {
-        GridCoordinates playerCoords = WorldCoordinateUtils.WorldPositionToGridCoordinates(newViewPosition, chunkSizeInWorldUnits);
+        GridCoordinates playerCoords = WorldCoordinateUtils.WorldPositionToGridCoordinates(newViewPosition, chunkFactory.chunkSizeInWorldUnits);
         if (playerCoords.Equals(_currentCenterCoords))
         {
             return;
         }
 
         _currentCenterCoords = playerCoords;
-
-        HashSet<GridCoordinates> requiredCoords = new HashSet<GridCoordinates>();
-        for (int y = -viewDistanceInChunks; y <= viewDistanceInChunks; y++)
+        var requiredCoords = new HashSet<GridCoordinates>();
+        for (int y = -worldConfig.viewDistanceInChunks; y <= worldConfig.viewDistanceInChunks; y++)
         {
-            for (int x = -viewDistanceInChunks; x <= viewDistanceInChunks; x++)
+            for (int x = -worldConfig.viewDistanceInChunks; x <= worldConfig.viewDistanceInChunks; x++)
             {
                 requiredCoords.Add(new GridCoordinates(_currentCenterCoords.X + x, _currentCenterCoords.Y + y));
             }
         }
 
-        List<GridCoordinates> toUnload = _activeChunks.Keys.Where(c => !requiredCoords.Contains(c)).ToList();
+        var toUnload = _activeChunks.Keys.Where(c => !requiredCoords.Contains(c)).ToList();
         foreach (var coords in toUnload)
         {
             UnloadChunk(coords);

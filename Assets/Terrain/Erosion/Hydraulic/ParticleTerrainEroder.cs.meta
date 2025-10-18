@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7d664262cff53e343bdcfd4d822a4f45
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - erosionShader: {fileID: 7200000, guid: c0c1e6fe910d3b14a97e3667b1cd5cd9, type: 3}
+  - particleTransferShader: {fileID: 7200000, guid: 401e2f2293587ca479574028786958ff, type: 3}
+  - config: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

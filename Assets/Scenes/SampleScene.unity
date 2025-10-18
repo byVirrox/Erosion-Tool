@@ -589,13 +589,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f061f3ab5eeecca40b6d26b64bd23a0f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Scripts::WorldManager
-  player: {fileID: 220732711}
-  viewDistanceInChunks: 2
-  chunkResolution: 513
-  chunkSizeInWorldUnits: 123
-  worldSeed: 0
+  worldConfig: {fileID: 11400000, guid: 7a1c0e0716d07ef459a9dc9c75e867b6, type: 2}
   chunkFactory: {fileID: 11400000, guid: ae333bc42bb8ef14ca9cf1d2f2d91fe0, type: 2}
+  player: {fileID: 220732711}
   eroder: {fileID: 11400000, guid: 02c53ca60d9833147bb629dbc473bfba, type: 2}
+  maxChunksToProcessPerFrame: 5
   terrainPrefab: {fileID: 375021090732723601, guid: 3f14ea478b94db14f951a709951bfe7c, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

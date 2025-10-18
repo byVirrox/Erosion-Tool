@@ -5,14 +5,8 @@ using UnityEngine;
 /// Defines the contract for a world that can handle particle erosion,
 /// including marking chunks as dirty and managing pending particles.
 /// </summary>
-public interface IParticleWorldManager
+public interface IParticleWorldManager : IWorldManager
 {
-    /// <summary>
-    /// Retrieves a specific chunk if it is currently active.
-    /// </summary>
-    /// <param name="coordinates">The coordinates of the chunk to retrieve.</param>
-    /// <returns>The chunk instance, or null if not active.</returns>
-    IChunk GetChunk(GridCoordinates coordinates);
     /// <summary>
     /// Marks a chunk as 'dirty' and adds it to the processing queue.
     /// </summary>

@@ -1,0 +1,11 @@
+struct Particle
+{
+    float2 pos;
+    float2 dir;
+    float speed;
+    float water;
+    float sediment;
+    int age;
+    int status;
+    int haloResilience;
+};

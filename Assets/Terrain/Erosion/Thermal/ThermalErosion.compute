@@ -22,7 +22,6 @@ void ThermalErosion(uint3 id : SV_DispatchThreadID)
 
     for (int i = 0; i < 4; i++)
     {
-        // Stelle sicher, dass wir nicht außerhalb des Bildes lesen
         if (neighbors[i].x >= 0 && neighbors[i].x < resolution &&
             neighbors[i].y >= 0 && neighbors[i].y < resolution)
         {
