@@ -48,7 +48,7 @@ float perlinNoise(float2 samplePoint)
 float2 get_grad_vector_matched(int hash)
 {
     int h = hash & 15;
-    // Diese Logik spiegelt exakt wider, welche Vektoren aus der
+    // Die Logik spiegelt wider, welche Vektoren aus der
     // Kombination von u, v, x und y in der Originalfunktion entstehen.
     switch (h)
     {
@@ -65,7 +65,7 @@ float2 get_grad_vector_matched(int hash)
         case 5:
             return float2(-1, 0);
         case 6:
-            return float2(1, 0); // Ja, Duplikate sind hier korrekt
+            return float2(1, 0); 
         case 7:
             return float2(-1, 0);
         case 8:
@@ -85,63 +85,57 @@ float2 get_grad_vector_matched(int hash)
         case 15:
             return float2(-1, -1);
     }
-    return float2(0, 0); // Sollte nie erreicht werden
+    return float2(0, 0); 
 }
 
-float3 perlinNoise_and_Deriv(float2 samplePoint)
+// --- Perlin Noise mit analytischer Ableitung (Inigo Quilez ) ---
+// Gibt float3 zurück: (noiseValue, dnoise/dx, dnoise/dy)
+float3 perlinNoise_deriv(float2 p) // p: samplePoint
 {
-    // 1. Gitterzelle und lokale Koordinaten finden
-    float2 fp = floor(samplePoint);
-    int2 ip = int2(fp);
-    float2 sp = samplePoint - fp; // Lokale Koordinaten (sx, sy)
+    // 1. Integer- und Fraktionalteil finden
+    float2 i = floor(p); // Integer part (ix, iy)
+    float2 f = frac(p); // Fractional part (fx, fy)
 
-    // 2. Hashes für die 4 Eckpunkte der Zelle berechnen (MIT KORREKTEM INDEXING!)
-    int X = ip.x & 255;
-    int Y = ip.y & 255;
+    // 2. Glättungsfunktion und deren Ableitung berechnen (komponentenweise)
+    float ux = fade(f.x); // Smoothed f.x
+    float uy = fade(f.y); // Smoothed f.y
+    float dux = fade_deriv(f.x); // Derivative df.x
+    float duy = fade_deriv(f.y); // Derivative df.y
+
+    // 3. Hashes und Gradientenvektoren für die 4 Ecken holen
+    int X = (int) i.x & 255;
+    int Y = (int) i.y & 255;
     int A = perm[X] + Y;
     int B = perm[X + 1] + Y;
 
-    // & 511 verwenden!
-    int hash00 = perm[A & 511];
-    int hash10 = perm[B & 511];
-    int hash01 = perm[(A + 1) & 511];
-    int hash11 = perm[(B + 1) & 511];
+    float2 g00 = get_grad_vector_matched(perm[A & 511]); // Gradient unten-links
+    float2 g10 = get_grad_vector_matched(perm[B & 511]); // Gradient unten-rechts
+    float2 g01 = get_grad_vector_matched(perm[(A + 1) & 511]); // Gradient oben-links
+    float2 g11 = get_grad_vector_matched(perm[(B + 1) & 511]); // Gradient oben-rechts
 
-    // 3. Gradientenvektoren für alle 4 Ecken holen
-    float2 grad00 = get_grad_vector_matched(hash00);
-    float2 grad10 = get_grad_vector_matched(hash10);
-    float2 grad01 = get_grad_vector_matched(hash01);
-    float2 grad11 = get_grad_vector_matched(hash11);
+    // 4. Skalarprodukte (Einflusswerte) der Ecken berechnen
+    // v = dot(gradient, vector_from_corner_to_point)
+    float v00 = dot(g00, f - float2(0.0, 0.0));
+    float v10 = dot(g10, f - float2(1.0, 0.0));
+    float v01 = dot(g01, f - float2(0.0, 1.0));
+    float v11 = dot(g11, f - float2(1.0, 1.0));
 
-    // 4. Einflusswerte (Skalarprodukte) berechnen
-    float val00 = dot(grad00, sp);
-    float val10 = dot(grad10, sp - float2(1.0, 0.0));
-    float val01 = dot(grad01, sp - float2(0.0, 1.0));
-    float val11 = dot(grad11, sp - float2(1.0, 1.0));
+    // 5. Noise-Wert durch bilineare Interpolation berechnen
+    float value = lerp(uy, lerp(ux, v00, v10), lerp(ux, v01, v11));
 
-    // 5. Interpolationsgewichte und deren Ableitungen berechnen
-    float u = fade(sp.x);
-    float v = fade(sp.y);
-    float dudx = fade_deriv(sp.x);
-    float dvdy = fade_deriv(sp.y);
+    // 6. Analytische Ableitung berechnen (kombinierte Form, explizit komponentenweise)
+    // Teil aus der Ableitung der Dot-Produkte (Interpolation der Gradienten-Komponenten)
+    float grad_interp_x = lerp(uy, lerp(ux, g00.x, g10.x), lerp(ux, g01.x, g11.x));
+    float grad_interp_y = lerp(uy, lerp(ux, g00.y, g10.y), lerp(ux, g01.y, g11.y));
 
-    // 6. Den Noise-Wert per bilinearer Interpolation berechnen
-    float value = lerp(v, lerp(u, val00, val10), lerp(u, val01, val11));
+    // Teil aus der Ableitung der Interpolationsgewichte
+    float deriv_weight_x = dux * lerp(uy, v10 - v00, v11 - v01);
+    float deriv_weight_y = duy * lerp(ux, v01 - v00, v11 - v10);
 
-    // 7. Die Ableitung zusammensetzen (analytisch korrekt)
-    // Partielle Ableitung nach x
-    float k0 = val10 - val00;
-    float k1 = val11 - val01;
-    float kx_part1 = dudx * lerp(v, k0, k1);
-    float kx_part2 = lerp(v, lerp(u, grad00.x, grad10.x), lerp(u, grad01.x, grad11.x));
-    
-    // Partielle Ableitung nach y
-    float k3 = lerp(u, val01, val11);
-    float k4 = lerp(u, val00, val10);
-    float ky_part1 = dvdy * (k3 - k4);
-    float ky_part2 = lerp(v, lerp(u, grad00.y, grad10.y), lerp(u, grad01.y, grad11.y));
-    
-    float2 derivative = float2(kx_part1 + kx_part2, ky_part1 + ky_part2);
+    // Gesamte Ableitung
+    float2 derivative = float2(grad_interp_x + deriv_weight_x,
+                                grad_interp_y + deriv_weight_y);
+
     return float3(value, derivative.x, derivative.y);
 }
 

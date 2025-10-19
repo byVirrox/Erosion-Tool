@@ -114,7 +114,7 @@ void get_grad_components(int hash, out float gx, out float gy)
 
 // Neue Funktion, die den Noise-Wert und seinen Gradienten (Ableitung) zurückgibt.
 // Rückgabewert: float3(noise, dnoise/dx, dnoise/dy)
-float3 simplexNoiseWithDerivative(float2 samplePoint)
+float3 simplexNoise_deriv(float2 samplePoint)
 {
     // Schritte 1-4 sind identisch zur Originalfunktion
     // 1. Skew the input space

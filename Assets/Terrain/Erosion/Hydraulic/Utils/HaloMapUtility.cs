@@ -3,13 +3,11 @@ using UnityEngine;
 
 public static class HaloMapUtility
 {
-    // Baut die HaloMap aus vorhandenen Teilen zusammen, anstatt sie neu zu generieren.
     public static RenderTexture BuildHaloMap(IChunk<RenderTexture> chunk, int borderSize, IReadOnlyDictionary<GridCoordinates, UnityChunk> activeChunks, IReadOnlyDictionary<GridCoordinates, WorldManager.UnloadedChunkData> unloadedChunkCache)
     {
         RenderTexture sourceMap = chunk.GetHeightMapData();
         if (sourceMap == null) return null;
 
-        // 1. Erstelle eine neue, leere HaloMap in der richtigen Größe.
         int resolution = sourceMap.width;
         int borderedResolution = resolution + borderSize * 2;
         var haloMapDescriptor = sourceMap.descriptor;
@@ -17,10 +15,8 @@ public static class HaloMapUtility
         haloMapDescriptor.height = borderedResolution;
         RenderTexture haloMap = RenderTexture.GetTemporary(haloMapDescriptor);
 
-        // 2. Kopiere den zentralen Chunk in die Mitte.
         Graphics.CopyTexture(sourceMap, 0, 0, 0, 0, resolution, resolution, haloMap, 0, 0, borderSize, borderSize);
 
-        // 3. Fülle die Ränder mit Daten von Nachbarn (aktiv oder aus dem Cache).
         foreach (NeighborDirection dir in System.Enum.GetValues(typeof(NeighborDirection)))
         {
             GridCoordinates neighborCoords = WorldCoordinateUtils.GetNeighborCoords(chunk.Coordinates, dir);
@@ -43,7 +39,6 @@ public static class HaloMapUtility
         return haloMap;
     }
 
-    // Schreibt die modifizierten Ränder der HaloMap zurück in die aktiven Chunks oder den Cache.
     public static List<IChunk> DeconstructHaloMap(RenderTexture haloMap, IParticleErodibleChunk sourceChunk, int borderSize, IReadOnlyDictionary<GridCoordinates, UnityChunk> activeChunks, Dictionary<GridCoordinates, WorldManager.UnloadedChunkData> unloadedChunkCache)
     {
         var dirtiedNeighbors = new List<IChunk>();
@@ -52,20 +47,19 @@ public static class HaloMapUtility
         {
             GridCoordinates neighborCoords = WorldCoordinateUtils.GetNeighborCoords(sourceChunk.Coordinates, dir);
 
-            // Fall 1: Nachbar ist aktiv und geladen.
             if (activeChunks.TryGetValue(neighborCoords, out var activeNeighbor))
             {
                 CommitBorderToNeighbor(haloMap, activeNeighbor.GetHeightMapData(), dir, borderSize);
                 dirtiedNeighbors.Add(activeNeighbor);
             }
-            // Fall 2: Nachbar ist nicht aktiv, aber im Cache.
+
             else if (unloadedChunkCache.TryGetValue(neighborCoords, out var cachedNeighborData) && cachedNeighborData.Heightmap != null)
             {
                 CommitBorderToNeighbor(haloMap, cachedNeighborData.Heightmap, dir, borderSize);
             }
         }
 
-        // Kopiere den modifizierten zentralen Teil zurück in den originalen Chunk.
+
         int resolution = sourceChunk.GetHeightMapData().width;
         Graphics.CopyTexture(haloMap, 0, 0, borderSize, borderSize, resolution, resolution, sourceChunk.GetHeightMapData(), 0, 0, 0, 0);
 

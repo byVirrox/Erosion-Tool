@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7337c012ce834174191f861591259711, type: 3}
   m_Name: ChunkFactory
   m_EditorClassIdentifier: Scripts::UnityChunkFactory
-  heightmapResolution: 1025
+  heightmapResolution: 513
   chunkSizeInWorldUnits: 128
   generatorAsset: {fileID: 11400000, guid: 90f4d36ba399208458cad868fdefcd66, type: 2}

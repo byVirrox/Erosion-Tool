@@ -55,11 +55,11 @@ float AdvancedFBM(float2 samplePoint, in FbmParams params)
     {
         float3 noise_deriv;
         if (params.noiseType == VALUE)
-            noise_deriv = valueNoise(samplePoint);
+            noise_deriv = valueNoise_deriv(samplePoint);
         else if (params.noiseType == SIMPLEX)
-            noise_deriv = simplexNoiseWithDerivative(samplePoint);
+            noise_deriv = simplexNoise_deriv(samplePoint);
         else
-            noise_deriv = perlinNoise_and_Deriv(samplePoint);
+            noise_deriv = perlinNoise_deriv(samplePoint);
         
         if (i < params.ridgedOctaves && i > 0)
         {
@@ -98,7 +98,7 @@ float StandardFBM(float2 samplePoint, in FbmParams params)
         if (params.noiseType == SIMPLEX) 
             noiseValue = simplexNoise(samplePoint * frequency);
         else if (params.noiseType == VALUE) 
-            noiseValue = valueNoise(samplePoint * frequency).x;
+            noiseValue = valueNoise_deriv(samplePoint * frequency).x;
         else
             noiseValue = perlinNoise(samplePoint * frequency);
         

@@ -21,7 +21,7 @@ float2 hash(float2 p)
 
 
 // 2D Value Noise mit analytischen Ableitungen (portiert von Inigo Quilez)
-float3 valueNoise(in float2 x)
+float3 valueNoise_deriv(in float2 x)
 {
     float2 p = floor(x);
     float2 f = frac(x);
