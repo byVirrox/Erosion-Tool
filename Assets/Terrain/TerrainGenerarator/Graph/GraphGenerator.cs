@@ -8,7 +8,6 @@ public class GraphGenerator : TerrainGenerator
 
     [Header("Shader Dependencies")]
     [SerializeField] private ComputeShader fbmShader;
-    [SerializeField] private ComputeShader addShader;
     [SerializeField] private ComputeShader operationShader;
     [SerializeField] private ComputeShader splineShader;
     [SerializeField] private PermutationTable permutationTable;
@@ -40,8 +39,7 @@ public class GraphGenerator : TerrainGenerator
         {
             var executorConfig = new GraphExecutorConfig
             {
-                FbmShader = fbmShader,
-                AddShader = addShader, 
+                FbmShader = fbmShader, 
                 OperationShader = operationShader,
                 SplineShader = splineShader,
                 PermutationBuffer = m_PermBuffer

@@ -110,22 +110,6 @@ public class TerrainGraphImporter : ScriptedImporter
                 runtimeNode = fbmRuntimeNode;
                 break;
 
-            case TerrainAddNode addNode:
-                var addRuntimeNode = new AddRuntimeNode();
-                IPort inputPortA = addNode.GetInputPortByName(TerrainAddNode.INPUT_A_PORT);
-                if (inputPortA != null && inputPortA.isConnected && inputPortA.firstConnectedPort != null)
-                {
-                    addRuntimeNode.inputNodeIdA = m_NodeToIdMap[inputPortA.firstConnectedPort.GetNode()];
-                }
-
-                IPort inputPortB = addNode.GetInputPortByName(TerrainAddNode.INPUT_B_PORT);
-                if (inputPortB != null && inputPortB.isConnected && inputPortB.firstConnectedPort != null)
-                {
-                    addRuntimeNode.inputNodeIdB = m_NodeToIdMap[inputPortB.firstConnectedPort.GetNode()];
-                }
-                runtimeNode = addRuntimeNode;
-                break;
-
             case OperationNode opNode:
                 var opRuntimeNode = new OperationRuntimeNode();
 

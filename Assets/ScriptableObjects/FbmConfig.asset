@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FbmConfig
   offset: {x: 816.9, y: 111}
   scale: 1
-  xScale: 0.0003
-  yScale: 0.0003
+  xScale: 0.001
+  yScale: 0.001
   heightScale: 0.4
   persistence: 0.6
   lacunarity: 2

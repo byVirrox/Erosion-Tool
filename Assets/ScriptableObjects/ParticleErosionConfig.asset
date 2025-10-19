@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2bf0d039aeac3443a8754fb17dc9e7f, type: 3}
   m_Name: ParticleErosionConfig
   m_EditorClassIdentifier: Assembly-CSharp::ErosionConfig
-  numErosionIterations: 0
+  numErosionIterations: 100000
   erosionBrushRadius: 4
   maxLifetime: 90
   inertia: 0.032
@@ -24,6 +24,6 @@ MonoBehaviour:
   minSedimentCapacity: 0
   depositSpeed: 0.3
   erodeSpeed: 0.3
-  haloZoneWidth: 8
+  haloZoneWidth: 4
   enableDebugTexture: 0
   enableDebugParticleCount: 0

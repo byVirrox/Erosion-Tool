@@ -16,8 +16,6 @@ public class GraphExecutor : IGraphGenerator
         m_Executors = new Dictionary<System.Type, ITerrainNodeExecutor>
         {
             { typeof(FbmRuntimeNode), new FbmNodeExecutor(config.FbmShader, config.PermutationBuffer) },
-            
-            { typeof(AddRuntimeNode), new AddNodeExecutor(config.AddShader) },
 
             { typeof(OperationRuntimeNode), new OperationNodeExecutor(config.OperationShader) },
 
