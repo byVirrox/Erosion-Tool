@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 public static class ParticleTransferUtility
 {
-    public static void ProcessTransfers(IParticleErodibleChunk sourceChunk, ITerrainParticleEroder eroder, IParticleWorldManager world)
+    public static void ProcessTransfers(IParticleErodibleChunk sourceChunk, IParticleEroder eroder, IParticleWorldManager world)
     {
         var outgoingBuffer = eroder.GetOutgoingBuffer();
         int totalOutgoingCount = eroder.GetAppendBufferCount(outgoingBuffer);

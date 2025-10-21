@@ -6,7 +6,7 @@ using UnityEngine;
 /// It accepts the final RenderTexture, which serves as a heightmap for a chunk.
 /// </summary>
 [Serializable]
-internal class TerrainOutputNode : TerrainNode
+internal class TerrainOutputNode : TerrainNodeBase
 {
     public const string INPUT_PORT_NAME = "Heightmap In";
 

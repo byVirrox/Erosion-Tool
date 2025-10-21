@@ -89,7 +89,7 @@ float simplexNoise(float2 samplePoint)
     }
 
     // 6. Sum the contributions and scale the result.
-    return 12 * (n0 + n1 + n2);
+    return 12.0f * (n0 + n1 + n2);
 }
 
 // Hilfsfunktion, um die Komponenten (gx, gy) des Gradientenvektors

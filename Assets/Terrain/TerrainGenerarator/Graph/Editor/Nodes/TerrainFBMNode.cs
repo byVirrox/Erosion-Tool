@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 
 [Serializable]
-internal class TerrainFBMNode : TerrainNode
+internal class TerrainFBMNode : TerrainNodeBase
 {
     public const string OFFSET_PORT = "Offset";
     public const string SCALE_PORT = "Scale";

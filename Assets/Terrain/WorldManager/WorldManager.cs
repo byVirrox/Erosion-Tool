@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-public class WorldManager : AbstractWorldManager<UnityChunk, UnityChunkFactory>, IParticleWorldManager
+public class WorldManager : AbstractWorldManager<ErosionParticleChunk, ErosionParticleChunkFactory>, IParticleWorldManager
 {
     public class UnloadedChunkData
     {
@@ -12,24 +12,51 @@ public class WorldManager : AbstractWorldManager<UnityChunk, UnityChunkFactory>,
     }
 
     [Header("System-Specific Dependencies")]
-    [SerializeField] private ParticleTerrainEroder eroder;
+    [SerializeField] private ParticleEroder eroder;
 
     [Header("Performance Settings")]
-    [Tooltip("Die maximale Anzahl an Chunks, die pro Frame erodiert werden sollen.")]
+    [Tooltip("The maximum Number of Chunks that should be eroded every Frame")]
     [SerializeField] private int maxChunksToProcessPerFrame = 5;
 
     [Header("Visuals")]
     [SerializeField] private GameObject terrainPrefab;
 
-    private ITerrainParticleEroder _eroder;
+    [Header("WorldRegeneration")]
+    [Tooltip("Check to allow Realtimechanges by adjusting parameters")]
+    [SerializeField] private bool checkWorldRegeneration = false;
+
+    private const float RegenerationDelay = 0.5f;
+    private float _timeUntilRegeneration = -1f;
+
+    private IParticleEroder _eroder;
 
     private readonly Dictionary<GridCoordinates, Terrain> _activeTerrainObjects = new Dictionary<GridCoordinates, Terrain>();
 
     private readonly Dictionary<GridCoordinates, UnloadedChunkData> _unloadedChunkCache = new Dictionary<GridCoordinates, UnloadedChunkData>();
 
-    private readonly Queue<UnityChunk> _dirtyChunksQueue = new Queue<UnityChunk>();
-    private readonly HashSet<UnityChunk> _chunksInQueue = new HashSet<UnityChunk>();
+    private readonly Queue<ErosionParticleChunk> _dirtyChunksQueue = new Queue<ErosionParticleChunk>();
+    private readonly HashSet<ErosionParticleChunk> _chunksInQueue = new HashSet<ErosionParticleChunk>();
     private ITerrainGenerator _terrainGenerator;
+
+
+    protected override void Update()
+    {
+        base.Update();
+        if (_timeUntilRegeneration > 0)
+        {
+            _timeUntilRegeneration -= Time.deltaTime;
+            if (_timeUntilRegeneration <= 0 && checkWorldRegeneration)
+            {
+                ForceFullRegeneration();
+            }
+        }
+    }
+
+    public void TriggerRegenerationDelayed()
+    {
+        _timeUntilRegeneration = RegenerationDelay;
+        Debug.Log("Regeneration queued...");
+    }
 
     #region Overridden Base Methods
 
@@ -41,11 +68,11 @@ public class WorldManager : AbstractWorldManager<UnityChunk, UnityChunkFactory>,
 
     protected override void LoadChunk(GridCoordinates coords)
     {
-        UnityChunk newChunk;
+        ErosionParticleChunk newChunk;
 
         if (_unloadedChunkCache.TryGetValue(coords, out var cachedData))
         {
-            newChunk = new UnityChunk(coords, cachedData.Heightmap);
+            newChunk = new ErosionParticleChunk(coords, cachedData.Heightmap);
             newChunk.InitialParticlesDropped = cachedData.InitialParticlesDropped;
 
             if (cachedData.PendingParticles.Count > 0)
@@ -68,7 +95,7 @@ public class WorldManager : AbstractWorldManager<UnityChunk, UnityChunkFactory>,
         foreach (NeighborDirection dir in System.Enum.GetValues(typeof(NeighborDirection)))
         {
             GridCoordinates neighborCoords = WorldCoordinateUtils.GetNeighborCoords(coords, dir);
-            if (_activeChunks.TryGetValue(neighborCoords, out UnityChunk neighbor))
+            if (_activeChunks.TryGetValue(neighborCoords, out ErosionParticleChunk neighbor))
             {
                 newChunk.SetNeighbor(dir, neighbor);
                 neighbor.SetNeighbor(WorldCoordinateUtils.GetOppositeDirection(dir), newChunk);
@@ -80,7 +107,7 @@ public class WorldManager : AbstractWorldManager<UnityChunk, UnityChunkFactory>,
 
     protected override void UnloadChunk(GridCoordinates coords)
     {
-        if (_activeChunks.TryGetValue(coords, out UnityChunk chunkToUnload))
+        if (_activeChunks.TryGetValue(coords, out ErosionParticleChunk chunkToUnload))
         {
             if (!_unloadedChunkCache.TryGetValue(coords, out var cacheEntry))
             {
@@ -105,7 +132,7 @@ public class WorldManager : AbstractWorldManager<UnityChunk, UnityChunkFactory>,
     }
 
 
-    protected override void SpawnChunkGameObject(UnityChunk chunk)
+    protected override void SpawnChunkGameObject(ErosionParticleChunk chunk)
     {
         Vector3 position = new Vector3(chunk.Coordinates.X * chunkFactory.chunkSizeInWorldUnits, 0, chunk.Coordinates.Y * chunkFactory.chunkSizeInWorldUnits);
         GameObject terrainObj = Instantiate(terrainPrefab, position, Quaternion.identity, this.transform);
@@ -125,7 +152,7 @@ public class WorldManager : AbstractWorldManager<UnityChunk, UnityChunkFactory>,
         chunk.ApplyToTerrain(terrain);
     }
 
-    protected override void DespawnChunkGameObject(UnityChunk chunk)
+    protected override void DespawnChunkGameObject(ErosionParticleChunk chunk)
     {
         if (_activeTerrainObjects.TryGetValue(chunk.Coordinates, out Terrain terrainToDestroy))
         {
@@ -158,6 +185,7 @@ public class WorldManager : AbstractWorldManager<UnityChunk, UnityChunkFactory>,
             {
                 RenderTexture.ReleaseTemporary(cachedData.Heightmap);
             }
+            cachedData.PendingParticles.Clear();
         }
         _unloadedChunkCache.Clear();
 
@@ -169,7 +197,7 @@ public class WorldManager : AbstractWorldManager<UnityChunk, UnityChunkFactory>,
             var context = new TerrainGenerationContext
             {
                 Coords = chunk.Coordinates,
-                Resolution = (int) chunkFactory.heightmapResolution,
+                Resolution = (int)chunkFactory.heightmapResolution,
                 BorderSize = 0,
                 WorldSeed = worldConfig.worldSeed
             };
@@ -189,12 +217,17 @@ public class WorldManager : AbstractWorldManager<UnityChunk, UnityChunkFactory>,
                 RenderTexture.ReleaseTemporary(oldHeightmap);
             }
 
-
             chunk.InitialParticlesDropped = false;
             chunk.ClearIncomingParticles();
 
+            if (_activeTerrainObjects.TryGetValue(chunk.Coordinates, out Terrain terrainToUpdate))
+            {
+                chunk.ApplyToTerrain(terrainToUpdate);
+            }
+
             MarkChunkAsDirty(chunk);
         }
+        Debug.Log("Regeneration complete. Chunks marked for re-erosion.");
     }
 
     #endregion
@@ -203,7 +236,7 @@ public class WorldManager : AbstractWorldManager<UnityChunk, UnityChunkFactory>,
 
     public void MarkChunkAsDirty(IChunk chunk)
     {
-        if (chunk is UnityChunk typedChunk && !_chunksInQueue.Contains(typedChunk))
+        if (chunk is ErosionParticleChunk typedChunk && !_chunksInQueue.Contains(typedChunk))
         {
             _dirtyChunksQueue.Enqueue(typedChunk);
             _chunksInQueue.Add(typedChunk);
@@ -224,7 +257,7 @@ public class WorldManager : AbstractWorldManager<UnityChunk, UnityChunkFactory>,
     {
         for (int i = 0; i < maxChunksToProcessPerFrame && _dirtyChunksQueue.Count > 0; i++)
         {
-            UnityChunk chunkToProcess = _dirtyChunksQueue.Dequeue();
+            ErosionParticleChunk chunkToProcess = _dirtyChunksQueue.Dequeue();
             _chunksInQueue.Remove(chunkToProcess);
 
             chunkToProcess.IsDirty = true;
@@ -260,10 +293,41 @@ public class WorldManager : AbstractWorldManager<UnityChunk, UnityChunkFactory>,
             if (_activeTerrainObjects.TryGetValue(chunkToProcess.Coordinates, out Terrain terrainToUpdate))
             {
                 chunkToProcess.ApplyToTerrain(terrainToUpdate);
+
+                SetTerrainNeighbors(chunkToProcess, terrainToUpdate);
             }
 
             chunkToProcess.IsDirty = false;
         }
+    }
+
+    private void SetTerrainNeighbors(ErosionParticleChunk centerChunk, Terrain centerTerrain)
+    {
+        Terrain GetActiveTerrainObject(IChunk chunk)
+        {
+            if (chunk != null && _activeTerrainObjects.TryGetValue(chunk.Coordinates, out Terrain terrain))
+            {
+                return terrain;
+            }
+            return null;
+        }
+
+        Terrain neighborWest = GetActiveTerrainObject(centerChunk.GetNeighbor(NeighborDirection.West));
+        Terrain neighborSouth = GetActiveTerrainObject(centerChunk.GetNeighbor(NeighborDirection.South));
+        Terrain neighborEast = GetActiveTerrainObject(centerChunk.GetNeighbor(NeighborDirection.East));
+        Terrain neighborNorth = GetActiveTerrainObject(centerChunk.GetNeighbor(NeighborDirection.North));
+
+        centerTerrain.SetNeighbors(
+            left: neighborWest,
+            top: neighborNorth,
+            right: neighborEast,
+            bottom: neighborSouth
+        );
+
+        if (neighborWest != null) neighborWest.SetNeighbors(null, null, centerTerrain, null);
+        if (neighborEast != null) neighborEast.SetNeighbors(centerTerrain, null, null, null);
+        if (neighborSouth != null) neighborSouth.SetNeighbors(null, centerTerrain, null, null);
+        if (neighborNorth != null) neighborNorth.SetNeighbors(null, null, null, centerTerrain);
     }
 
 

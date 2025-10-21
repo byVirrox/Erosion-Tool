@@ -34,7 +34,7 @@ public class FbmConfig : ScriptableObject
     [Min(1)]
     public int octaves = 8;
 
-    [Tooltip("Number of initial octaves to be inverted, creating valleys or ridges.")]
+    [Tooltip("Number of initial octaves to be inverted to form connected ridges.")]
     [Min(0)]
     public int ridgedOctaves = 0;
 

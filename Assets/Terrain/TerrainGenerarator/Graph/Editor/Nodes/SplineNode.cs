@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 
 [Serializable]
-internal class SplineNode : TerrainNode
+internal class SplineNode : TerrainNodeBase
 {
     private const string k_SampleRateOptionName = "Sample Rate";
     private const string k_SplineOptionName = "Remap Curve"; 
@@ -10,8 +10,8 @@ internal class SplineNode : TerrainNode
     public const string INPUT_PORT_NAME = "In";
     public const string OUTPUT_PORT_NAME = "Out";
 
-    [SerializeField] public float inputMin = 0f;
-    [SerializeField] public float inputMax = 1f;
+    public float inputMin = 0f;
+    public float inputMax = 1f;
 
     protected override void OnDefineOptions(IOptionDefinitionContext context)
     {
@@ -23,7 +23,7 @@ internal class SplineNode : TerrainNode
 
         context.AddOption<AnimationCurve>(k_SplineOptionName)
             .WithDisplayName(k_SplineOptionName)
-            .WithDefaultValue(AnimationCurve.Linear(0, 0, 1, 1))
+            .WithDefaultValue(AnimationCurve.Linear(inputMin, inputMin, inputMax, inputMax))
             .Delayed();
     }
 

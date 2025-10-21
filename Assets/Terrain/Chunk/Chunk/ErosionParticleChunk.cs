@@ -8,7 +8,7 @@ using UnityEngine.Experimental.Rendering;
 /// It uses a RenderTexture to store its heightmap data and provides
 /// engine-specific functionality like applying the heightmap to a Unity Terrain object.
 /// </summary>
-public class UnityChunk : BaseChunk, IChunk<RenderTexture>, IParticleErodibleChunk
+public class ErosionParticleChunk : BaseChunk, IChunk<RenderTexture>, IParticleErodibleChunk
 {
     private RenderTexture heightMap;
 
@@ -20,13 +20,13 @@ public class UnityChunk : BaseChunk, IChunk<RenderTexture>, IParticleErodibleChu
     private const int maxIncomingParticles = 300000;
 
 
-    public UnityChunk(GridCoordinates coordinates, RenderTexture pregeneratedHeightmap) : base(coordinates)
+    public ErosionParticleChunk(GridCoordinates coordinates, RenderTexture pregeneratedHeightmap) : base(coordinates)
     {
         this.heightMap = pregeneratedHeightmap;
         InitializeCommon(pregeneratedHeightmap.width);
     }
 
-    public UnityChunk(GridCoordinates coordinates, int resolution) : base(coordinates)
+    public ErosionParticleChunk(GridCoordinates coordinates, int resolution) : base(coordinates)
     {
         this.heightMap = new RenderTexture(resolution, resolution, 0, RenderTextureFormat.RFloat);
         this.heightMap.enableRandomWrite = true;

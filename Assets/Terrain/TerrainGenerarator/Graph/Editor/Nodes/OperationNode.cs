@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 
 [Serializable]
-internal class OperationNode : TerrainNode
+internal class OperationNode : TerrainNodeBase
 {
     public string OPERATION_NAME = "OperationType";
 

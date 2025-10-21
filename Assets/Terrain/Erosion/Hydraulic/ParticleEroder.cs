@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "NewParticleEroder", menuName = "Terrain/Particle Eroder Asset")]
-public class ParticleTerrainEroder : ScriptableObject, ITerrainParticleEroder
+public class ParticleEroder : ScriptableObject, IParticleEroder
 {
 
     [Header("Dependencies")]

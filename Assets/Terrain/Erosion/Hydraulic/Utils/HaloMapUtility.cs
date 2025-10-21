@@ -3,7 +3,7 @@ using UnityEngine;
 
 public static class HaloMapUtility
 {
-    public static RenderTexture BuildHaloMap(IChunk<RenderTexture> chunk, int borderSize, IReadOnlyDictionary<GridCoordinates, UnityChunk> activeChunks, IReadOnlyDictionary<GridCoordinates, WorldManager.UnloadedChunkData> unloadedChunkCache)
+    public static RenderTexture BuildHaloMap(IChunk<RenderTexture> chunk, int borderSize, IReadOnlyDictionary<GridCoordinates, ErosionParticleChunk> activeChunks, IReadOnlyDictionary<GridCoordinates, WorldManager.UnloadedChunkData> unloadedChunkCache)
     {
         RenderTexture sourceMap = chunk.GetHeightMapData();
         if (sourceMap == null) return null;
@@ -39,7 +39,7 @@ public static class HaloMapUtility
         return haloMap;
     }
 
-    public static List<IChunk> DeconstructHaloMap(RenderTexture haloMap, IParticleErodibleChunk sourceChunk, int borderSize, IReadOnlyDictionary<GridCoordinates, UnityChunk> activeChunks, Dictionary<GridCoordinates, WorldManager.UnloadedChunkData> unloadedChunkCache)
+    public static List<IChunk> DeconstructHaloMap(RenderTexture haloMap, IParticleErodibleChunk sourceChunk, int borderSize, IReadOnlyDictionary<GridCoordinates, ErosionParticleChunk> activeChunks, Dictionary<GridCoordinates, WorldManager.UnloadedChunkData> unloadedChunkCache)
     {
         var dirtiedNeighbors = new List<IChunk>();
 

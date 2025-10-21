@@ -20,6 +20,6 @@ MonoBehaviour:
   persistence: 0.6
   lacunarity: 2
   octaves: 8
-  ridgedOctaves: 0
-  noiseType: 0
+  ridgedOctaves: 2
+  noiseType: 1
   fbmType: 1
