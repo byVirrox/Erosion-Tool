@@ -18,14 +18,14 @@ internal class TerrainFBMNode : TerrainNodeBase
     public const string OUTPUT_PORT = "Heightmap Out";
 
     public enum NoiseType { Perlin, Simplex, Cellular }
-    public enum FBMType { StandardFBM, RidgedFBM }
+    public enum FBMType { StandardFBM, AdvancedFBM }
 
     protected override void OnDefinePorts(IPortDefinitionContext context)
     {
         context.AddInputPort<Vector2>(OFFSET_PORT).WithDefaultValue(Vector2.zero).Build();
         context.AddInputPort<float>(SCALE_PORT).WithDefaultValue(1.0f).Build();
         context.AddInputPort<float>(XSCALE_PORT).WithDefaultValue(0.001f).Build();
-        context.AddInputPort<float>(YSCALE_PORT).WithDefaultValue(0.010f).Build();
+        context.AddInputPort<float>(YSCALE_PORT).WithDefaultValue(0.001f).Build();
         context.AddInputPort<float>(HEIGHT_SCALE_PORT).WithDefaultValue(0.3f).Build();
         context.AddInputPort<float>(PERSISTENCE_PORT).WithDefaultValue(0.5f).Build();
         context.AddInputPort<float>(LACUNARITY_PORT).WithDefaultValue(2.0f).Build();

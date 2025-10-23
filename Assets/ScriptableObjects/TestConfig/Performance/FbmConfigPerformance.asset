@@ -16,10 +16,10 @@ MonoBehaviour:
   scale: 1
   xScale: 0.002
   yScale: 0.002
-  heightScale: 0.5
+  heightScale: 0.3
   persistence: 0.5
   lacunarity: 2
   octaves: 8
   ridgedOctaves: 0
   noiseType: 0
-  fbmType: 1
+  fbmType: 0

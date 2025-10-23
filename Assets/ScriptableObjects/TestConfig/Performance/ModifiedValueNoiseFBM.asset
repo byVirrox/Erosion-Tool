@@ -19,7 +19,7 @@ MonoBehaviour:
   heightScale: 0.3
   persistence: 0.5
   lacunarity: 2
-  octaves: 11
+  octaves: 8
   ridgedOctaves: 0
-  noiseType: 1
+  noiseType: 0
   fbmType: 0
