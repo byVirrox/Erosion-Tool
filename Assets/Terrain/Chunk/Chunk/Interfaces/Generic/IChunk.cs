@@ -1,5 +1,3 @@
-using UnityEngine;
-
 public interface IChunk<T> : IChunk
 {
     /// <summary>

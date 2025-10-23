@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d664262cff53e343bdcfd4d822a4f45, type: 3}
+  m_Name: ParticleEroderExperimental
+  m_EditorClassIdentifier: Assembly-CSharp::ParticleTerrainEroder
+  erosionShader: {fileID: 7200000, guid: c0c1e6fe910d3b14a97e3667b1cd5cd9, type: 3}
+  particleTransferShader: {fileID: 7200000, guid: 401e2f2293587ca479574028786958ff, type: 3}
+  config: {fileID: 11400000, guid: 916dbb3185b36c241ae3290eaa0acb0b, type: 2}
+  log: 1

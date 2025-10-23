@@ -8,7 +8,6 @@ public class ParticleEroder : ScriptableObject, IParticleEroder
 
     [Header("Dependencies")]
     public ComputeShader erosionShader;
-    public ComputeShader particleTransferShader;
     public ErosionConfig config;
 
     private ComputeBuffer _brushIndicesBuffer;
@@ -23,8 +22,7 @@ public class ParticleEroder : ScriptableObject, IParticleEroder
         ReleaseAllBuffers();
     }
 
-
-    public void Erode(IParticleErodibleChunk chunk, RenderTexture haloMap, int worldSeed)
+    public Particle[] Erode(IParticleErodibleChunk chunk, RenderTexture haloMap, int worldSeed)
     {
         EnsureBuffersAreInitialized();
         int borderSize = (haloMap.width - chunk.GetHeightMapData().width) / 2;
@@ -74,6 +72,21 @@ public class ParticleEroder : ScriptableObject, IParticleEroder
         {
             RenderTexture.ReleaseTemporary(debugTexture);
         }
+
+        int count = GetAppendBufferCount(_outgoingParticleBuffer);
+
+        if (count == 0)
+        {
+            _outgoingParticleBuffer?.SetCounterValue(0); 
+            return null; 
+        }
+
+        Particle[] allParticles = new Particle[count];
+        _outgoingParticleBuffer.GetData(allParticles);
+
+        _outgoingParticleBuffer.SetCounterValue(0);
+
+        return allParticles;
     }
 
     private void SaveRenderTextureAsPNG(RenderTexture rt, string fileName)
@@ -85,17 +98,23 @@ public class ParticleEroder : ScriptableObject, IParticleEroder
         RenderTexture.active = null;
 
         byte[] bytes = tex.EncodeToPNG();
-        System.IO.File.WriteAllBytes(Application.dataPath + "/Terrain/Erosion/Hydraulic/DebugImages/" + fileName, bytes);
+
+        string filePath = DebuggingFilePaths.GetDebugTexturePath(fileName);
+
+        try 
+        {
+            System.IO.File.WriteAllBytes(filePath, bytes);
+            Debug.Log($"Debug-Textur gespeichert unter: {filePath}");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"Fehler beim Speichern der Debug-Textur nach {filePath}: {ex.Message}");
+        }
+
         Object.Destroy(tex);
-        Debug.Log($"Debug-Textur gespeichert als: {fileName}");
     }
 
-    public ComputeShader GetTransferShader() => particleTransferShader;
-    public ComputeBuffer GetOutgoingBuffer() => _outgoingParticleBuffer;
-
-
-    //TODO Auslagern 
-    public int GetAppendBufferCount(ComputeBuffer appendBuffer)
+    private int GetAppendBufferCount(ComputeBuffer appendBuffer)
     {
         if (appendBuffer == null)
         {  
@@ -203,7 +222,7 @@ public class ParticleEroder : ScriptableObject, IParticleEroder
                     sediment = 0,
                     age = 0,
                     status = (int)ParticleStatus.InChunk,
-                    haloResilience = rand.Next(0, Mathf.Max(config.haloZoneWidth - config.erosionBrushRadius, 1))
+                    haloResilience = rand.Next(0, Mathf.Max(config.haloZoneWidth - config.erosionBrushRadius, 1)) + 1
                 });
             }
             chunk.InitialParticlesDropped = true;
@@ -262,11 +281,6 @@ public class ParticleEroder : ScriptableObject, IParticleEroder
     private void OnDisable()
     {
         ReleaseAllBuffers();
-    }
-
-    public void ClearOutgoingBuffer()
-    {
-        _outgoingParticleBuffer?.SetCounterValue(0);
     }
 
     private void ReleaseAllBuffers()

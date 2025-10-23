@@ -18,21 +18,14 @@ public class ErosionParticleChunk : BaseChunk, IChunk<RenderTexture>, IParticleE
     public bool InitialParticlesDropped { get; set; }
 
     private const int maxIncomingParticles = 300000;
+    private ComputeShader _transferShader;
 
 
-    public ErosionParticleChunk(GridCoordinates coordinates, RenderTexture pregeneratedHeightmap) : base(coordinates)
+    public ErosionParticleChunk(GridCoordinates coordinates, RenderTexture pregeneratedHeightmap, ComputeShader transferShader) : base(coordinates)
     {
+        this._transferShader = transferShader;
         this.heightMap = pregeneratedHeightmap;
         InitializeCommon(pregeneratedHeightmap.width);
-    }
-
-    public ErosionParticleChunk(GridCoordinates coordinates, int resolution) : base(coordinates)
-    {
-        this.heightMap = new RenderTexture(resolution, resolution, 0, RenderTextureFormat.RFloat);
-        this.heightMap.enableRandomWrite = true;
-        this.heightMap.Create();
-
-        InitializeCommon(resolution);
     }
 
     private void InitializeCommon(int resolution)
@@ -60,7 +53,7 @@ public class ErosionParticleChunk : BaseChunk, IChunk<RenderTexture>, IParticleE
 
     #region Interface Implementations
 
-    public void AppendFromCPU(List<Particle> particles, ComputeShader transferShader)
+    public void AppendFromCPU(List<Particle> particles)
     {
         if (particles == null || particles.Count == 0) 
             return;
@@ -68,12 +61,12 @@ public class ErosionParticleChunk : BaseChunk, IChunk<RenderTexture>, IParticleE
         ComputeBuffer tempCpuBuffer = new ComputeBuffer(particles.Count, Marshal.SizeOf<Particle>());
         tempCpuBuffer.SetData(particles);
 
-        int kernel = transferShader.FindKernel("CopyAppendParticles");
-        transferShader.SetBuffer(kernel, "Source", tempCpuBuffer);
-        transferShader.SetBuffer(kernel, "Destination", _incomingParticlesBuffer);
+        int kernel = _transferShader.FindKernel("CopyAppendParticles");
+        _transferShader.SetBuffer(kernel, "Source", tempCpuBuffer);
+        _transferShader.SetBuffer(kernel, "Destination", _incomingParticlesBuffer);
 
         int numThreadGroups = Mathf.CeilToInt(particles.Count / 64f);
-        transferShader.Dispatch(kernel, numThreadGroups, 1, 1);
+        _transferShader.Dispatch(kernel, numThreadGroups, 1, 1);
 
         tempCpuBuffer.Release();
     }

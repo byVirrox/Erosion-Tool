@@ -593,8 +593,9 @@ MonoBehaviour:
   chunkFactory: {fileID: 11400000, guid: ae333bc42bb8ef14ca9cf1d2f2d91fe0, type: 2}
   player: {fileID: 220732711}
   eroder: {fileID: 11400000, guid: 02c53ca60d9833147bb629dbc473bfba, type: 2}
-  maxChunksToProcessPerFrame: 5
+  maxChunksToProcessPerFrame: 1
   terrainPrefab: {fileID: 375021090732723601, guid: 3f14ea478b94db14f951a709951bfe7c, type: 3}
+  checkWorldRegeneration: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

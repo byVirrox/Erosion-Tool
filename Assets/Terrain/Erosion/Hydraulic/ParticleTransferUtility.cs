@@ -3,21 +3,12 @@ using System.Collections.Generic;
 
 public static class ParticleTransferUtility
 {
-    public static void ProcessTransfers(IParticleErodibleChunk sourceChunk, IParticleEroder eroder, IParticleWorldManager world)
+    public static void ProcessTransfers(IParticleErodibleChunk sourceChunk, Particle[] allParticles, IParticleWorldManager world)
     {
-        var outgoingBuffer = eroder.GetOutgoingBuffer();
-        int totalOutgoingCount = eroder.GetAppendBufferCount(outgoingBuffer);
-
-        if (totalOutgoingCount == 0)
+        if (allParticles == null || allParticles.Length == 0)
         {
-            eroder.ClearOutgoingBuffer();
             return;
         }
-
-        Particle[] allParticles = new Particle[totalOutgoingCount];
-        outgoingBuffer.GetData(allParticles);
-
-        eroder.ClearOutgoingBuffer();
 
         var gpuTransfers = new Dictionary<IParticleErodibleChunk, List<Particle>>();
 
@@ -51,7 +42,7 @@ public static class ParticleTransferUtility
             var neighborChunk = transfer.Key;
             var particlesToTransfer = transfer.Value;
 
-            neighborChunk.AppendFromCPU(particlesToTransfer, eroder.GetTransferShader());
+            neighborChunk.AppendFromCPU(particlesToTransfer);
             world.MarkChunkAsDirty(neighborChunk);
         }
     }

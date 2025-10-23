@@ -35,5 +35,10 @@ public class WorldManagerEditor : Editor
             _worldManager.ForceFullRegeneration();
             Debug.Log("ForceFullRegeneration triggered: All active chunks have been regenerated and marked as ‘dirty’.");
         }
+
+        if (GUILayout.Button("Save Performance Data Now"))
+        {
+            _worldManager.SavePerformanceData();
+        }
     }
 }

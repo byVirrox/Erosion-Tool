@@ -13,6 +13,7 @@ public class ErosionParticleChunkFactory : ScriptableObject, IChunkFactory<Erosi
     [Header("Generator Asset")]
     [Tooltip("Drag the generator asset here (e.g., a GraphGenerator or FbmNoiseGenerator).")]
     [SerializeField] private TerrainGenerator generatorAsset;
+    [SerializeField] private ComputeShader particleTransferShader;
     private ITerrainGenerator m_TerrainGenerator;
 
     float IChunkFactory<ErosionParticleChunk>.chunkSizeInWorldUnits => chunkSizeInWorldUnits;
@@ -47,7 +48,31 @@ public class ErosionParticleChunkFactory : ScriptableObject, IChunkFactory<Erosi
 
         RenderTexture heightmap = m_TerrainGenerator.Generate(context);
 
-        return new ErosionParticleChunk(coords, heightmap);
+        return new ErosionParticleChunk(coords, heightmap, particleTransferShader);
+    }
+
+    public ErosionParticleChunk CreateChunkFromData(GridCoordinates coords, RenderTexture heightmap)
+    {
+        return new ErosionParticleChunk(coords, heightmap, particleTransferShader);
+    }
+
+    public RenderTexture GenerateBaseHeightmap(GridCoordinates coords, int worldSeed)
+    {
+        if (m_TerrainGenerator == null)
+        {
+            Debug.LogError("No valid ITerrainGenerator assigned in the ChunkFactory.");
+            return null;
+        }
+
+        var context = new TerrainGenerationContext
+        {
+            Coords = coords,
+            Resolution = (int)heightmapResolution,
+            BorderSize = 0,
+            WorldSeed = worldSeed
+        };
+
+        return m_TerrainGenerator.Generate(context);
     }
 
     public ITerrainGenerator GetGenerator()
