@@ -24,6 +24,6 @@ MonoBehaviour:
   minSedimentCapacity: 0
   depositSpeed: 0.3
   erodeSpeed: 0.3
-  haloZoneWidth: 30
+  haloZoneWidth: 20
   enableDebugTexture: 0
   enableDebugParticleCount: 0

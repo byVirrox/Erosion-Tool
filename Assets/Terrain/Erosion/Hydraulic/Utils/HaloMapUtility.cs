@@ -39,9 +39,9 @@ public static class HaloMapUtility
         return haloMap;
     }
 
-    public static List<IChunk> DeconstructHaloMap(RenderTexture haloMap, IParticleErodibleChunk sourceChunk, int borderSize, IReadOnlyDictionary<GridCoordinates, ErosionParticleChunk> activeChunks, Dictionary<GridCoordinates, WorldManager.UnloadedChunkData> unloadedChunkCache)
+
+    public static void DeconstructHaloMap(RenderTexture haloMap, IParticleErodibleChunk sourceChunk, int borderSize, IReadOnlyDictionary<GridCoordinates, ErosionParticleChunk> activeChunks, Dictionary<GridCoordinates, WorldManager.UnloadedChunkData> unloadedChunkCache)
     {
-        var dirtiedNeighbors = new List<IChunk>();
 
         foreach (NeighborDirection dir in System.Enum.GetValues(typeof(NeighborDirection)))
         {
@@ -50,20 +50,15 @@ public static class HaloMapUtility
             if (activeChunks.TryGetValue(neighborCoords, out var activeNeighbor))
             {
                 CommitBorderToNeighbor(haloMap, activeNeighbor.GetHeightMapData(), dir, borderSize);
-                dirtiedNeighbors.Add(activeNeighbor);
             }
-
             else if (unloadedChunkCache.TryGetValue(neighborCoords, out var cachedNeighborData) && cachedNeighborData.Heightmap != null)
             {
                 CommitBorderToNeighbor(haloMap, cachedNeighborData.Heightmap, dir, borderSize);
             }
         }
 
-
         int resolution = sourceChunk.GetHeightMapData().width;
         Graphics.CopyTexture(haloMap, 0, 0, borderSize, borderSize, resolution, resolution, sourceChunk.GetHeightMapData(), 0, 0, 0, 0);
-
-        return dirtiedNeighbors;
     }
 
     private static void CopyNeighborBorder(RenderTexture haloMap, RenderTexture neighborMap, NeighborDirection dir, int borderSize)

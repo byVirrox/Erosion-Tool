@@ -42,8 +42,11 @@ public static class ParticleTransferUtility
             var neighborChunk = transfer.Key;
             var particlesToTransfer = transfer.Value;
 
-            neighborChunk.AppendFromCPU(particlesToTransfer);
-            world.MarkChunkAsDirty(neighborChunk);
+            if (particlesToTransfer.Count > 0)
+            {
+                neighborChunk.AppendFromCPU(particlesToTransfer);
+                world.MarkChunkAsDirty(neighborChunk);
+            }
         }
     }
 }

@@ -105,6 +105,7 @@ public class WorldManager : AbstractWorldManager<ErosionParticleChunk, ErosionPa
                 if (enableProfilerMarkers) Profiler.EndSample();
             }
         }
+        Debug.Log(_dirtyChunksQueue.Count);
 
         // 3. Performance Logging Logik (wie zuvor)
         if (enableDataLogging)
@@ -326,6 +327,7 @@ public class WorldManager : AbstractWorldManager<ErosionParticleChunk, ErosionPa
         if (enableProfilerMarkers) Profiler.BeginSample("WorldManager.ProcessDirtyChunks");
         if (enableDataLogging) _stopwatch.Restart();
 
+
         ProcessDirtyChunks(); // Your core erosion loop
 
         if (enableDataLogging)
@@ -398,6 +400,11 @@ public class WorldManager : AbstractWorldManager<ErosionParticleChunk, ErosionPa
     {
         if (chunk is ErosionParticleChunk typedChunk && !_chunksInQueue.Contains(typedChunk))
         {
+            if (typedChunk.LastProcessedFrame == Time.frameCount)
+            {
+                return;
+            }
+
             _dirtyChunksQueue.Enqueue(typedChunk);
             _chunksInQueue.Add(typedChunk);
         }
@@ -419,9 +426,11 @@ public class WorldManager : AbstractWorldManager<ErosionParticleChunk, ErosionPa
         {
             if (enableProfilerMarkers) Profiler.BeginSample("ProcessDirtyChunks - Single Chunk Loop");
 
+
             ErosionParticleChunk chunkToProcess = _dirtyChunksQueue.Dequeue();
             _chunksInQueue.Remove(chunkToProcess);
 
+            chunkToProcess.LastProcessedFrame = Time.frameCount; // <-- HIER SETZEN
             chunkToProcess.IsDirty = true;
 
             EnsureNeighborChunksExist(chunkToProcess.Coordinates);
@@ -444,7 +453,7 @@ public class WorldManager : AbstractWorldManager<ErosionParticleChunk, ErosionPa
             if (enableProfilerMarkers) Profiler.EndSample();
 
             if (enableProfilerMarkers) Profiler.BeginSample("ProcessDirtyChunks - DeconstructHaloMap");
-            List<IChunk> dirtiedNeighbors = HaloMapUtility.DeconstructHaloMap(haloMap, chunkToProcess, borderSize, _activeChunks, _unloadedChunkCache);
+            HaloMapUtility.DeconstructHaloMap(haloMap, chunkToProcess, borderSize, _activeChunks, _unloadedChunkCache);
             if (enableProfilerMarkers) Profiler.EndSample();
 
             RenderTexture.ReleaseTemporary(haloMap);
@@ -453,13 +462,6 @@ public class WorldManager : AbstractWorldManager<ErosionParticleChunk, ErosionPa
             ParticleTransferUtility.ProcessTransfers(chunkToProcess, outgoingParticles, this);
             if (enableProfilerMarkers) Profiler.EndSample();
 
-            if (dirtiedNeighbors != null)
-            {
-                foreach (var neighbor in dirtiedNeighbors)
-                {
-                    MarkChunkAsDirty(neighbor);
-                }
-            }
 
             if (_activeTerrainObjects.TryGetValue(chunkToProcess.Coordinates, out Terrain terrainToUpdate))
             {

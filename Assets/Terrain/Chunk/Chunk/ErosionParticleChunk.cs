@@ -19,6 +19,7 @@ public class ErosionParticleChunk : BaseChunk, IChunk<RenderTexture>, IParticleE
 
     private const int maxIncomingParticles = 300000;
     private ComputeShader _transferShader;
+    public int LastProcessedFrame { get; set; } = -1;
 
 
     public ErosionParticleChunk(GridCoordinates coordinates, RenderTexture pregeneratedHeightmap, ComputeShader transferShader) : base(coordinates)
@@ -94,27 +95,15 @@ public class ErosionParticleChunk : BaseChunk, IChunk<RenderTexture>, IParticleE
             return;
         }
 
-        Texture2D tempTexture = new Texture2D(terrainResolution, terrainResolution, TextureFormat.RFloat, false);
-
         RenderTexture.active = this.heightMap;
-        tempTexture.ReadPixels(new Rect(0, 0, terrainResolution, terrainResolution), 0, 0);
-        tempTexture.Apply();
+
+        terrain.terrainData.CopyActiveRenderTextureToHeightmap(
+        new RectInt(0, 0, terrainResolution, terrainResolution),
+            new Vector2Int(0, 0),
+            TerrainHeightmapSyncControl.HeightAndLod
+        );
+
         RenderTexture.active = null;
-
-        float[,] heights = new float[terrainResolution, terrainResolution];
-        Color[] pixels = tempTexture.GetPixels();
-
-        for (int y = 0; y < terrainResolution; y++)
-        {
-            for (int x = 0; x < terrainResolution; x++)
-            {
-                heights[y, x] = pixels[y * terrainResolution + x].r;
-            }
-        }
-
-        terrain.terrainData.SetHeights(0, 0, heights);
-
-        Object.Destroy(tempTexture);
     }
 
     public void ReleaseResources()
